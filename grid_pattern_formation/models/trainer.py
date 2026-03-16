@@ -3,41 +3,42 @@ import numpy as np
 from tqdm import tqdm
 from ..utils.visualize import save_ratemaps
 import os
-import wandb
-
+from clearml import Task
+from clearml import Logger
 
 class Trainer(object):
     def __init__(self, options, model, trajectory_generator, restore=False):
         self.options = options
         self.model = model
         self.trajectory_generator = trajectory_generator
-        self.optimizer = options.optimizer
-        self.lr = options.learning_rate
         self.topographic_loss = options.use_topographic_loss
         
         if self.topographic_loss:
             assert options.tau is not None, "tau value must be specified in options when using topographic loss"
             assert options.topoloss_scheduler_type is not None, "topoloss_scheduler_type must be specified in options when using topographic loss"
-
-        if self.options.wandb_log is True:
-            self.wandb = True
-            assert (
-                options.wandb_project is not None
-            ), "wandb_project must be specified in options to log to wandb"
-            wandb.init(
-                project=options.wandb_project,
-                name=options.run_name,
-                config=vars(options),
+            self.tau = options.tau
+        else:
+            self.tau = None
+        
+        if self.options.clearml is True:
+            self.log_to_clearml = True
+            self.task = Task.init(
+                project_name=options.clearml_project,
+                task_name=options.run_name,
             )
+            self.task.connect(vars(options))
+            self.logger = Logger.current_logger()
+        else:
+            self.log_to_clearml = False
 
-        assert self.optimizer in [
+        assert options.optimizer in [
             "Adam",
             "RMSprop",
         ], "Optimizer must be either Adam or RMSprop"
-        if self.optimizer == "Adam":
-            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
-        elif self.optimizer == "RMSprop":
-            self.optimizer = torch.optim.RMSprop(self.model.parameters(), lr=self.lr)
+        if options.optimizer == "Adam":
+            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=options.learning_rate)
+        elif options.optimizer == "RMSprop":
+            self.optimizer = torch.optim.RMSprop(self.model.parameters(), lr=options.learning_rate)
 
         self.loss = []
         self.err = []
@@ -120,8 +121,11 @@ class Trainer(object):
                 self.err.append(err)
                 step_bar.set_postfix(loss=f"{loss:.3f}", err=f"{100*err:.2f}cm")
                 
-                if self.wandb:
-                    wandb.log({"loss": loss, "err": err, "epoch": epoch_idx, "topo_lambda": topo_lambda})
+                if self.log_to_clearml:
+                    self.logger.report_scalar("loss", "train", value=loss, iteration=epoch_idx * n_steps + step_idx)
+                    self.logger.report_scalar("err", "train", value=err, iteration=epoch_idx * n_steps + step_idx)
+                    self.logger.report_scalar("topo_lambda", "schedule", value=topo_lambda or 0, iteration=epoch_idx * n_steps + step_idx)
+
 
             if save and (epoch_idx % self.options.save_every_epochs == 0 or epoch_idx == 1):
                 ckpt_path = os.path.join(self.ckpt_dir, f"epoch_{epoch_idx}.pth")
@@ -132,3 +136,5 @@ class Trainer(object):
            
 
         torch.save(self.model, os.path.join(self.ckpt_dir, "final_model.pth"))
+        if self.log_to_clearml:
+            self.task.close()
