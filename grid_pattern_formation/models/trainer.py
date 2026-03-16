@@ -75,16 +75,16 @@ class Trainer(object):
             return self.tau
         elif self.options.topoloss_scheduler_type == "cosine_annealing":
             min_lambda = self.tau * 0.1
-            ep = min(epoch_idx, 100000)
-            progress = ep / 100000
+            ep = min(epoch_idx, self.options.n_epochs)
+            progress = ep / self.options.n_epochs
             lambda_val = min_lambda + (
                 self.tau - min_lambda
             ) * 0.5 * (1 + np.cos(np.pi * progress))
             return lambda_val
         elif self.options.topoloss_scheduler_type == "reverse_cosine_annealing":
             min_lambda = self.tau * 0.1
-            ep = min(epoch_idx, 100000)
-            progress = ep / 100000
+            ep = min(epoch_idx, self.options.n_epochs)
+            progress = ep / self.options.n_epochs
             lambda_val = self.tau - (
                 (self.tau - min_lambda) * 0.5 * (1 + np.cos(np.pi * progress))
             )
