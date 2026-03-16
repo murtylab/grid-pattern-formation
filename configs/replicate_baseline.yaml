@@ -1,0 +1,41 @@
+# general
+save_dir: /research/kushal/temp/checkpoints   # save dir
+run_name: replicate_baseline                    # unique run ID for this training run
+n_epochs: 100                                   # number of epochs to train for   
+save_every_epochs: 10                           # save model checkpoint every n epochs
+n_steps: 1000                                   # number of steps per epoch
+dtype: float32                                  # dtype
+workers: 4                                      # number of workers for data loading
+device: cuda:0
+
+# hyperparameters
+batch_size: 200                                 # batch size       
+sequence_length: 20                             # length of input sequences
+learning_rate: 0.0001                           # learning rate
+optimizer: RMSprop                              # optimizer to use for training. choose bw 'adam' and 'RMSprop'
+weight_decay: 0.0001                            # l2-norm weight decay
+
+# topography
+use_topographic_loss: False                     # whether to use topographic loss for training
+tau: 1.0                                        # maximum tau value for topographic loss
+topoloss_scheduler_type: "cosine_annealing"     # scheduler type for topographic loss. choose bw 'cosine_annealing', 'reverse_cosine_annealing', and 'constant'
+
+# model
+RNN_type: RNN                                   # always default to RNN 
+activation: relu                                # activation function to use in the RNN.       
+Ng: 4096                                        # number of grid cells
+Np: 512                                         # number of place cells
+
+# place cells
+place_cell_rf: 0.12                             # tuning curve width (m)
+surround_scale: 2                               # DoG sigma ratio (sigma2^2 / sigma1^2)
+DoG: true                                       # difference of gaussians tuning        
+
+# training enviornment
+periodic: False                                 # true = toroidal wrap, false = walled box     
+box_width: 2.2                                  # meters
+box_height: 2.2                                 # meters        
+
+# wandb
+wandb_log: True                                 # whether to log training metrics to wandb
+wandb_project: grid-pattern-formation           # wandb project name to log to. set to None to disable logging to wandb
