@@ -54,4 +54,5 @@ Below is a short description of all the args we can manipulate:
 | Arg | Default | Description |
 |-----|---------|-------------|
 | `wandb_log` | `true` | Log metrics to W&B |
+| `wandb_entity` | `gridcells` | W&B team/entity |
 | `wandb_project` | `grid-pattern-formation` | W&B project name |
