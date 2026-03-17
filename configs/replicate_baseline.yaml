@@ -1,5 +1,5 @@
 # general
-save_dir: /research/kushal/temp/checkpoints   # save dir
+save_dir: ./checkpoints   # save dir
 run_name: replicate_baseline                    # unique run ID for this training run
 n_epochs: 100                                   # number of epochs to train for   
 save_every_epochs: 10                           # save model checkpoint every n epochs
@@ -38,5 +38,4 @@ box_height: 2.2                                 # meters
 
 # wandb
 wandb_log: True                                 # whether to log training metrics to wandb
-wandb_entity: gridcells                         # wandb team/entity
 wandb_project: grid-pattern-formation           # wandb project name to log to. set to None to disable logging to wandb
