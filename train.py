@@ -6,6 +6,9 @@ from grid_pattern_formation.place_cells import PlaceCells
 from grid_pattern_formation.trajectory_generator import TrajectoryGenerator
 from grid_pattern_formation.models.rnn import RNN
 from grid_pattern_formation.models.trainer import Trainer
+from grid_pattern_formation.utils.seed import seed_everything
+
+seed_everything(0)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--config", type=str, required=True, help="path to config yaml")
