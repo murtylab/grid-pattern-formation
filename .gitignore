@@ -2,3 +2,5 @@
 *wandb/
 checkpoints/
 *__pycache__/
+models/
+notes.txt
