@@ -4,10 +4,8 @@ from tqdm import tqdm
 from ..utils.visualize import save_ratemaps
 import os
 
-try:
-    import wandb
-except ImportError:
-    wandb = None
+import wandb
+
 
 def _to_wandb_config(options):
     config = {}
@@ -32,19 +30,12 @@ class Trainer(object):
         else:
             self.tau = None
         
-        self.log_to_wandb = bool(getattr(self.options, "wandb_log", False))
+        self.log_to_wandb = self.options.wandb_log
         self.wandb_run = None
         if self.log_to_wandb:
-            if wandb is None:
-                raise ImportError(
-                    "wandb not installed "
-                )
 
-            wandb_project = getattr(self.options, "wandb_project", "grid-pattern-formation")
-            wandb_entity = getattr(self.options, "wandb_entity", "gridcells")
             self.wandb_run = wandb.init(
-                project=wandb_project,
-                entity=wandb_entity,
+                project=self.options.wandb_project,
                 name=options.run_name,
                 config=_to_wandb_config(options),
             )
@@ -144,7 +135,6 @@ class Trainer(object):
                         {
                             "train/loss": loss,
                             "train/err": err,
-                            "schedule/topo_lambda": topo_lambda or 0,
                         },
                         step=epoch_idx * n_steps + step_idx,
                     )
