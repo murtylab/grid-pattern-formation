@@ -20,6 +20,9 @@ def convert_original_checkpoint_to_torch_state_dict(
     path: str,
     save_as: str = "original_checkpoint.pth",
 ) -> dict:
+    """
+    based on: https://github.com/ganguli-lab/grid-pattern-formation/issues/4#issuecomment-3055157551
+    """
     data = np.load(path, allow_pickle=True)
 
     assert len(data) == 4, f"Expected 4 items in checkpoint, got {len(data)}"
