@@ -26,7 +26,9 @@ class Trainer(object):
                 project_name=options.clearml_project,
                 task_name=options.run_name,
             )
-            self.task.connect(vars(options))
+            params = vars(options).copy()
+            params['dtype'] = str(params['dtype']) # offending field
+            self.task.connect(params)
             self.logger = Logger.current_logger()
         else:
             self.log_to_clearml = False
@@ -136,5 +138,4 @@ class Trainer(object):
            
 
         torch.save(self.model, os.path.join(self.ckpt_dir, "final_model.pth"))
-        if self.log_to_clearml:
-            self.task.close()
+
