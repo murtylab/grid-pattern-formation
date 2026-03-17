@@ -3,8 +3,20 @@ import numpy as np
 from tqdm import tqdm
 from ..utils.visualize import save_ratemaps
 import os
-from clearml import Task
-from clearml import Logger
+
+try:
+    import wandb
+except ImportError:
+    wandb = None
+
+def _to_wandb_config(options):
+    config = {}
+    for key, value in vars(options).items():
+        if isinstance(value, (str, int, float, bool, type(None))):
+            config[key] = value
+        else:
+            config[key] = str(value)
+    return config
 
 class Trainer(object):
     def __init__(self, options, model, trajectory_generator, restore=False):
@@ -20,16 +32,22 @@ class Trainer(object):
         else:
             self.tau = None
         
-        if self.options.clearml is True:
-            self.log_to_clearml = True
-            self.task = Task.init(
-                project_name=options.clearml_project,
-                task_name=options.run_name,
+        self.log_to_wandb = bool(getattr(self.options, "wandb_log", False))
+        self.wandb_run = None
+        if self.log_to_wandb:
+            if wandb is None:
+                raise ImportError(
+                    "wandb not installed "
+                )
+
+            wandb_project = getattr(self.options, "wandb_project", "grid-pattern-formation")
+            wandb_entity = getattr(self.options, "wandb_entity", "gridcells")
+            self.wandb_run = wandb.init(
+                project=wandb_project,
+                entity=wandb_entity,
+                name=options.run_name,
+                config=_to_wandb_config(options),
             )
-            self.task.connect(vars(options))
-            self.logger = Logger.current_logger()
-        else:
-            self.log_to_clearml = False
 
         assert options.optimizer in [
             "Adam",
@@ -121,11 +139,15 @@ class Trainer(object):
                 self.err.append(err)
                 step_bar.set_postfix(loss=f"{loss:.3f}", err=f"{100*err:.2f}cm")
                 
-                if self.log_to_clearml:
-                    self.logger.report_scalar("loss", "train", value=loss, iteration=epoch_idx * n_steps + step_idx)
-                    self.logger.report_scalar("err", "train", value=err, iteration=epoch_idx * n_steps + step_idx)
-                    self.logger.report_scalar("topo_lambda", "schedule", value=topo_lambda or 0, iteration=epoch_idx * n_steps + step_idx)
-
+                if self.log_to_wandb:
+                    wandb.log(
+                        {
+                            "train/loss": loss,
+                            "train/err": err,
+                            "schedule/topo_lambda": topo_lambda or 0,
+                        },
+                        step=epoch_idx * n_steps + step_idx,
+                    )
 
             if save and (epoch_idx % self.options.save_every_epochs == 0 or epoch_idx == 1):
                 ckpt_path = os.path.join(self.ckpt_dir, f"epoch_{epoch_idx}.pth")
@@ -136,5 +158,5 @@ class Trainer(object):
            
 
         torch.save(self.model, os.path.join(self.ckpt_dir, "final_model.pth"))
-        if self.log_to_clearml:
-            self.task.close()
+        if self.log_to_wandb and self.wandb_run is not None:
+            self.wandb_run.finish()

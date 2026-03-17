@@ -13,7 +13,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/grid_pattern_formation/grid_pattern_formation",
     packages=setuptools.find_packages(),
-    install_requires=["einops", "torch", "numpy"],
+    install_requires=["einops", "torch", "numpy", "wandb"],
     classifiers=[
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
