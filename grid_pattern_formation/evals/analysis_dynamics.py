@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy
 
-from evals.core import EvalContext, get_cached_ratemaps
-from evals.analysis_connectivity import _compute_phase_order
+from .core import EvalContext, get_cached_ratemaps
+from .analysis_connectivity import _compute_phase_order
 
 def _savefig(path: str):
     plt.tight_layout()

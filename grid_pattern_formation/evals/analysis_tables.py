@@ -5,8 +5,8 @@ from typing import Dict, List
 import numpy as np
 import torch
 
-from evals.analysis_core import compute_grid_scores
-from evals.core import EvalContext
+from .analysis_core import compute_grid_scores
+from .core import EvalContext
 
 def _append_row(csv_path: str, fieldnames: List[str], row: Dict[str, object]) -> str:
     os.makedirs(os.path.dirname(csv_path), exist_ok=True)

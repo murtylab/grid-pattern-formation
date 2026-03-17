@@ -5,7 +5,7 @@ def load_trained_weights(model, weight_dir):
 
     device = model.options.device if hasattr(model, "options") else "cpu"
     loaded_model = torch.load(weight_dir, map_location=device, weights_only=False)
-    model.load_state_dict(loaded_model.state_dict())
+    model.load_state_dict(loaded_model.state_dict(), strict=True)
     
     print("Loaded trained weights")
     

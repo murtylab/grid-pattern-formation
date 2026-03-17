@@ -1,14 +1,15 @@
 import os
+import sys
 from typing import Dict
 
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
 
-from grid_pattern_formation.utils.visualize import plot_ratemaps
+from ..utils.visualize import plot_ratemaps
 
-from evals.core import EvalContext, get_cached_ratemaps
-from evals.grid_scores import GridScorer
+from .core import EvalContext, get_cached_ratemaps
+from .grid_scores import GridScorer
 
 def _savefig(path: str):
     plt.tight_layout()

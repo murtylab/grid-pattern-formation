@@ -3,4 +3,9 @@
 checkpoints/
 *__pycache__/
 models/
+results/
 notes.txt
+*.DS_Store
+*.png
+*.jpg
+*.csv

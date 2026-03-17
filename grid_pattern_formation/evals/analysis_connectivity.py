@@ -1,12 +1,14 @@
 import os
+import sys
 from typing import Dict, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy
 
-from evals.core import EvalContext, get_cached_ratemaps
-from grid_pattern_formation.utils.two_d_sort import get_2d_sort
+from .core import EvalContext, get_cached_ratemaps
+
+from ..utils.two_d_sort import get_2d_sort
 
 def _savefig(path: str):
     plt.tight_layout()

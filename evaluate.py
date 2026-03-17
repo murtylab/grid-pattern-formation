@@ -1,32 +1,11 @@
 import argparse
 
-from evals.analysis_connectivity import (
-    run_eigenvalues,
-    run_jmean_sorted,
-    run_jmean_unsorted,
-    run_sorted_connectivity_eigvs,
-    run_single_neuron_connectivity_sorted,
-    run_single_neuron_connectivity_unsorted,
-    run_unsorted_connectivity_eigvs,
-)
-from evals.analysis_core import (
-    run_grid_score_histogram,
-    run_grid_score_panels,
-    run_manifold_distance,
-    run_place_cell_outputs,
-    run_trajectory_decoding,
-)
-from evals.analysis_dynamics import (
-    run_projection_onto_sliding_mode,
-    run_thetas_plot,
-    run_torus_construction,
-)
-from evals.analysis_tables import (
-    run_grid_scores_csv,
-    run_sparsities_csv,
-    run_trajectory_decodings_csv,
-)
-from evals.core import build_context
+from grid_pattern_formation.evals.core import build_context
+
+from grid_pattern_formation.evals.analysis_connectivity import run_eigenvalues, run_jmean_sorted, run_jmean_unsorted, run_single_neuron_connectivity_sorted, run_single_neuron_connectivity_unsorted, run_sorted_connectivity_eigvs, run_unsorted_connectivity_eigvs
+from grid_pattern_formation.evals.analysis_core import run_grid_score_histogram, run_grid_score_panels, run_manifold_distance, run_place_cell_outputs, run_trajectory_decoding
+from grid_pattern_formation.evals.analysis_dynamics import run_projection_onto_sliding_mode, run_thetas_plot, run_torus_construction
+from grid_pattern_formation.evals.analysis_tables import run_grid_scores_csv, run_sparsities_csv, run_trajectory_decodings_csv
 
 ANALYSIS_RUNNERS = {
     "trajectory_decoding": run_trajectory_decoding,

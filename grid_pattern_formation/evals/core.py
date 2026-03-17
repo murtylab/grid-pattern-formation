@@ -1,16 +1,17 @@
 import argparse
 import os
 from dataclasses import dataclass, field
+import sys
 from typing import Any, Dict, Tuple
 
 import torch
 import yaml
 
-from grid_pattern_formation.models.rnn import RNN
-from grid_pattern_formation.place_cells import PlaceCells
-from grid_pattern_formation.trajectory_generator import TrajectoryGenerator
-from grid_pattern_formation.utils.load_weights import load_trained_weights
-from grid_pattern_formation.utils.visualize import compute_ratemaps
+from ..models.rnn import RNN
+from ..place_cells import PlaceCells
+from ..trajectory_generator import TrajectoryGenerator
+from ..utils.load_weights import load_trained_weights
+from ..utils.visualize import compute_ratemaps
 
 @dataclass
 class EvalContext:
@@ -40,7 +41,7 @@ def _resolve_results_root(results_root: str) -> str:
     if os.path.isabs(results_root):
         return results_root
 
-    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     return os.path.join(repo_root, results_root)
 
 def build_context(model_path: str, config_path: str, model_name: str, results_root: str) -> EvalContext:
