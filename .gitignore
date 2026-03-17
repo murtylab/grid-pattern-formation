@@ -2,3 +2,4 @@
 *wandb/
 checkpoints/
 *__pycache__/
+grid_pattern_formation.egg-info/
