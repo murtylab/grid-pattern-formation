@@ -11,3 +11,6 @@ notes.txt
 grid_pattern_formation.egg-info/
 *.pth
 *.npy
+train_colab.ipynb
+*.yaml
+!replicate_baseline.yaml
