@@ -8,6 +8,7 @@ from tqdm import tqdm
 
 from ..trajectory_generator import TrajectoryGenerator
 from ..utils.visualize import save_ratemaps
+from topoloss import TopoLoss
 
 def _to_wandb_config(options):
     config = {}
@@ -24,7 +25,8 @@ class Trainer(object):
         options: argparse.Namespace, 
         model: nn.Module, 
         trajectory_generator: TrajectoryGenerator, 
-        restore=False
+        restore=False,
+        topo_loss: TopoLoss = None,
     ):
         
         assert isinstance(trajectory_generator, TrajectoryGenerator), f"trajectory_generator must be an instance of TrajectoryGenerator but got: {type(trajectory_generator)}"
@@ -32,15 +34,7 @@ class Trainer(object):
         self.options = options
         self.model = model
         self.trajectory_generator = trajectory_generator
-        self.topographic_loss = options.use_topographic_loss
-        
-        
-        if self.topographic_loss:
-            assert options.tau is not None, "tau value must be specified in options when using topographic loss"
-            assert options.topoloss_scheduler_type is not None, "topoloss_scheduler_type must be specified in options when using topographic loss"
-            self.tau = options.tau
-        else:
-            self.tau = None
+        self.topo_loss = topo_loss
         
         self.log_to_wandb = self.options.wandb_log
         self.wandb_run = None
@@ -76,15 +70,14 @@ class Trainer(object):
             else:
                 print(f"\033[91mCheckpoint directory {self.ckpt_dir} already exists!\033[0m")
 
-    def train_step(self, inputs, pc_outputs, pos, tau=None):
+    def train_step(self, inputs, pc_outputs, pos):
         self.model.zero_grad()
 
         loss, err = self.model.compute_loss(
             inputs=inputs,
             pc_outputs=pc_outputs,
             pos=pos,
-            apply_topoloss=self.topographic_loss,
-            tau=tau,
+            topo_loss=self.topo_loss,
         )
 
         loss.backward()
@@ -117,15 +110,8 @@ class Trainer(object):
     def train(self, n_epochs: int, n_steps: int, save: bool = True):
         gen = self.trajectory_generator.get_generator()
 
-        # Precompute topo lambdas per epoch if using scheduler
-        topo_lambdas_scheduler = None
-        if self.topographic_loss:
-            topo_lambdas_scheduler = {
-                e: self.topoloss_scheduler(e) for e in range(1, n_epochs + 1)
-            }
 
         for epoch_idx in range(1, n_epochs + 1):
-            topo_lambda = topo_lambdas_scheduler[epoch_idx] if topo_lambdas_scheduler else None
 
             step_bar = tqdm(
                 range(n_steps),
@@ -136,18 +122,27 @@ class Trainer(object):
             for step_idx in step_bar:
                 inputs, pc_outputs, pos = next(gen)
                 loss, err = self.train_step(
-                    inputs, pc_outputs, pos, tau=topo_lambda
+                    inputs=inputs,
+                    pc_outputs=pc_outputs,
+                    pos=pos,
+
                 )
                 self.loss.append(loss)
                 self.err.append(err)
                 step_bar.set_postfix(loss=f"{loss:.3f}", err=f"{100*err:.2f}cm")
                 
                 if self.log_to_wandb:
+                    log_data = {
+                        "train/loss": loss,
+                        "train/err": err,
+                    }
+                    if self.topo_loss is not None:
+                        topo_loss_dict = self.topo_loss.get_wandb_logging_dict(model=self.model)
+                        for key, value in topo_loss_dict.items():
+                            log_data[f"topoloss/{key}"] = value
+
                     wandb.log(
-                        {
-                            "train/loss": loss,
-                            "train/err": err,
-                        },
+                        log_data,
                         step=epoch_idx * n_steps + step_idx,
                     )
 

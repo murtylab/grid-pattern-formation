@@ -7,6 +7,7 @@ from grid_pattern_formation.models.rnn import RNN
 from grid_pattern_formation.models.trainer import Trainer
 from grid_pattern_formation.utils.seed import seed_everything
 from grid_pattern_formation.utils.config import load_config
+from topoloss import TopoLoss, LaplacianPyramid
 
 seed_everything(0)
 
@@ -31,10 +32,30 @@ trajectory_generator = TrajectoryGenerator(
     place_cells=place_cells,
 )
 
+
+if options.topoloss_tau is not None:
+    topo_loss = TopoLoss(
+        losses=[
+            LaplacianPyramid.from_layer(
+                model=model,
+                layer=model.RNN,
+                factor_h=9,
+                factor_w=9,
+                scale=options.topoloss_tau,
+                custom_weight_attribute_name="weight_hh_l0"
+            )
+        ],
+        strict_layer_type=False
+    )
+else:
+    pass
+
 trainer = Trainer(
     options=options,
     model=model,
     trajectory_generator=trajectory_generator,
-    restore=False
+    restore=False,
+    topo_loss=topo_loss
 )
+
 trainer.train(n_epochs=options.n_epochs, n_steps=options.n_steps)

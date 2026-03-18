@@ -1,7 +1,6 @@
-from einops import rearrange
 import torch
 import torch.nn.functional as F
-
+from topoloss import TopoLoss
 
 class RNN(torch.nn.Module):
     def __init__(self, options, place_cells):
@@ -12,7 +11,7 @@ class RNN(torch.nn.Module):
         self.weight_decay = options.weight_decay
         self.place_cells = place_cells
         self.device = torch.device(options.device)
-        self.dtype = torch.float32 if options.dtype is None else options.dtype
+        self.dtype = torch.float32 
 
         # Input weights
         self.encoder = torch.nn.Linear(
@@ -64,8 +63,7 @@ class RNN(torch.nn.Module):
         inputs,
         pc_outputs,
         pos,
-        apply_topoloss: bool = False,
-        tau: float = None,
+        topo_loss: TopoLoss = None,
     ):
         """
         Compute avg. loss and decoding error.
@@ -90,13 +88,10 @@ class RNN(torch.nn.Module):
         # L2 Weight regularization
         loss += self.weight_decay * (self.RNN.weight_hh_l0**2).sum()
 
-        if apply_topoloss:
-            loss += combined_biological_topo_loss(
-                weight_matrix=self.RNN.weight_hh_l0,
-                grid_height=64,
-                grid_width=64,
-                lambda_smoothness=tau,
-            )
+        if topo_loss is not None:
+            topo_loss_value = topo_loss.compute(model=self)
+            print(f"Topo loss value: {topo_loss_value.item():.4f}")
+            loss = loss + topo_loss_value
 
         # Compute decoding error
         pred_pos = self.place_cells.get_nearest_cell_pos(preds)
@@ -116,44 +111,3 @@ class RNN(torch.nn.Module):
             model.load_state_dict(model_or_state_dict, strict=True)
             
         return model
-
-
-def combined_biological_topo_loss(
-    weight_matrix: torch.Tensor,
-    grid_height: int,
-    grid_width: int,
-    factor_h: float = 4.0,
-    factor_w: float = 4.0,
-    tau: float = 1.0,
-):
-    """
-    Combine TopoLoss smoothness with distance penalty.
-
-    Smoothness: Neighboring neurons have similar connectivity patterns
-    """
-    n_neurons = weight_matrix.shape[0]
-    assert n_neurons == grid_height * grid_width
-
-    # Topoloss smoothness
-    cortical_sheet = weight_matrix.reshape(grid_height, grid_width, n_neurons)
-    grid = rearrange(cortical_sheet, "h w e -> e h w").unsqueeze(0)
-
-    # Blur operation
-    downscaled = F.interpolate(
-        grid,
-        scale_factor=(1 / factor_h, 1 / factor_w),
-        mode="bilinear",
-        align_corners=False,
-    )
-    upscaled = F.interpolate(
-        downscaled, size=grid.shape[2:], mode="bilinear", align_corners=False
-    )
-
-    # Smoothness loss: neighboring neurons should have similar connectivity
-    grid_flat = rearrange(grid.squeeze(0), "e h w -> (h w) e")
-    upscaled_flat = rearrange(upscaled.squeeze(0), "e h w -> (h w) e")
-    smoothness_loss = 1 - F.cosine_similarity(grid_flat, upscaled_flat, dim=-1).mean()
-
-    # apply the scheduler lambda to the topo loss
-    total_topo_loss = tau * smoothness_loss
-    return total_topo_loss
