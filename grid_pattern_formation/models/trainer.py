@@ -155,14 +155,14 @@ class Trainer(object):
                 ckpt_path = os.path.join(self.ckpt_dir, f"epoch_{epoch_idx:06d}.pth")
                 torch.save(obj=self.model, f=ckpt_path)
                 print(f"\033[92mSaved: {ckpt_path}\033[0m")
-                save_ratemaps(
-                    model=self.model, 
-                    trajectory_generator=self.trajectory_generator, 
-                    options=self.options, 
-                    step=epoch_idx,
-                    res=20,
-                    n_avg=None
-                )                
+                # save_ratemaps(
+                #     model=self.model, 
+                #     trajectory_generator=self.trajectory_generator, 
+                #     options=self.options, 
+                #     step=epoch_idx,
+                #     res=20,
+                #     n_avg=None
+                # )                
            
 
         torch.save(self.model, os.path.join(self.ckpt_dir, "final_model.pth"))
