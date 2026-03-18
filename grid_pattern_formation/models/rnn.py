@@ -105,7 +105,7 @@ class RNN(torch.nn.Module):
 
     @classmethod
     def from_pretrained(cls, checkpoint_path, device):
-        model = torch.load(checkpoint_path, map_location=device)
+        model = torch.load(checkpoint_path, map_location=device, weights_only=False)
         return model
 
 
