@@ -45,11 +45,13 @@ def _resolve_results_root(results_root: str) -> str:
     return os.path.join(repo_root, results_root)
 
 def build_context(model_path: str, config_path: str, model_name: str, results_root: str) -> EvalContext:
-    options = load_options(config_path)
+    options = load_options(config_path=config_path)
     place_cells = PlaceCells(options)
-    model = RNN(options, place_cells).to(options.device)
-    model = load_trained_weights(model, model_path)
-    trajectory_generator = TrajectoryGenerator(options, place_cells)
+    model = RNN.from_pretrained(
+        checkpoint_path=model_path,
+        device=options.device,
+    )
+    trajectory_generator = TrajectoryGenerator(options=options, place_cells=place_cells)
 
     results_dir = os.path.abspath(_resolve_results_root(results_root))
     save_dir = os.path.join(results_dir, model_name)
