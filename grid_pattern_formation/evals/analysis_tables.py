@@ -18,8 +18,8 @@ def _append_row(csv_path: str, fieldnames: List[str], row: Dict[str, object]) ->
         writer.writerow(row)
     return csv_path
 
-def _get_top25_indices_and_scores(ctx: EvalContext):
-    scores = compute_grid_scores(ctx)
+def _get_top25_indices_and_scores(eval_context: EvalContext):
+    scores = compute_grid_scores(eval_context)
     score_60 = np.asarray(scores["score_60"])
     top_25_indices = np.argsort(score_60)[-25:][::-1]
     top_25_scores = score_60[top_25_indices]
@@ -35,20 +35,20 @@ def calculate_firing_sparsity(firing_rates):
     sparsity = np.mean(is_between)
     return sparsity
 
-def run_grid_scores_csv(ctx: EvalContext) -> str:
-    _top_25_indices, top_25_scores, _scores = _get_top25_indices_and_scores(ctx)
+def run_grid_scores_csv(eval_context: EvalContext) -> str:
+    _top_25_indices, top_25_scores, _scores = _get_top25_indices_and_scores(eval_context)
 
     row = {
-        "data_source": ctx.options.run_name,
+        "data_source": eval_context.options.run_name,
         "grid_score_mean": float(np.mean(top_25_scores)),
         "grid_score_sds": float(np.std(top_25_scores, ddof=1)) if len(top_25_scores) > 1 else 0.0,
     }
 
-    csv_path = os.path.join(ctx.results_dir, "grid_scores.csv")
+    csv_path = os.path.join(eval_context.results_dir, eval_context.options.run_name, "grid_scores.csv")
     return _append_row(csv_path, ["data_source", "grid_score_mean", "grid_score_sds"], row)
 
-def run_sparsities_csv(ctx: EvalContext) -> str:
-    top_25_indices, _top_25_scores, scores = _get_top25_indices_and_scores(ctx)
+def run_sparsities_csv(eval_context: EvalContext) -> str:
+    top_25_indices, _top_25_scores, scores = _get_top25_indices_and_scores(eval_context)
     rate_map_lores = np.asarray(scores["rate_map_lores"])
 
     ratemaps = rate_map_lores.copy()
@@ -56,24 +56,24 @@ def run_sparsities_csv(ctx: EvalContext) -> str:
     sparsities = [calculate_firing_sparsity(ratemaps[i]) for i in range(ratemaps.shape[0])]
 
     row = {
-        "data_source": ctx.options.run_name,
+        "data_source": eval_context.options.run_name,
         "sparsity_mean": float(np.mean(sparsities)),
         "sparsity_sds": float(np.std(sparsities, ddof=1)) if len(sparsities) > 1 else 0.0,
     }
 
-    csv_path = os.path.join(ctx.results_dir, "sparsities.csv")
+    csv_path = os.path.join(eval_context.results_dir, eval_context.options.run_name, "sparsities.csv")
     return _append_row(csv_path, ["data_source", "sparsity_mean", "sparsity_sds"], row)
 
-def run_trajectory_decodings_csv(ctx: EvalContext) -> str:
-    inputs, pos, _pc_outputs = ctx.trajectory_generator.get_test_batch()
-    pred_pos = ctx.place_cells.get_nearest_cell_pos(ctx.model.predict(inputs))
+def run_trajectory_decodings_csv(eval_context: EvalContext) -> str:
+    inputs, pos, _pc_outputs = eval_context.trajectory_generator.get_test_batch()
+    pred_pos = eval_context.place_cells.get_nearest_cell_pos(eval_context.model.predict(inputs))
 
     err = torch.sqrt(((pos - pred_pos) ** 2).sum(-1)).mean()
 
     row = {
-        "data_source": ctx.options.run_name,
+        "data_source": eval_context.options.run_name,
         "error": float(err.detach().cpu().item()),
     }
 
-    csv_path = os.path.join(ctx.results_dir, "trajectory_decodings.csv")
+    csv_path = os.path.join(eval_context.results_dir, "trajectory_decodings.csv")
     return _append_row(csv_path, ["data_source", "error"], row)
