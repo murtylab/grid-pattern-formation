@@ -1,0 +1,40 @@
+name: Sync to Google Drive
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install rclone
+        run: curl https://rclone.org/install.sh | sudo bash
+
+      - name: Write service account key
+        env:
+          SA_JSON: ${{ secrets.GDRIVE_SERVICE_ACCOUNT }}
+        run: echo "$SA_JSON" > /tmp/sa.json
+
+      - name: Configure rclone
+        run: |
+          mkdir -p ~/.config/rclone
+          cat > ~/.config/rclone/rclone.conf << 'EOF'
+          [gdrive]
+          type = drive
+          scope = drive
+          service_account_file = /tmp/sa.json
+          EOF
+
+      - name: Sync to Google Drive
+        run: |
+          rclone sync . gdrive:${{ secrets.GDRIVE_FOLDER_ID }} \
+            --exclude ".git/**" \
+            --exclude ".github/**" \
+            --drive-use-trash=false \
+            -v
