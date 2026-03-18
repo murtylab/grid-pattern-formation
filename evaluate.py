@@ -1,8 +1,11 @@
 import argparse
+from grid_pattern_formation.utils.seed import seed_everything
 from grid_pattern_formation.evals import (
     build_eval_context, 
     run_eval_by_name
 )
+
+seed_everything(0)
 
 parser = argparse.ArgumentParser(description="evaluation for trained models")
 
