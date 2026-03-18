@@ -39,7 +39,7 @@ def run_grid_scores_csv(ctx: EvalContext) -> str:
     _top_25_indices, top_25_scores, _scores = _get_top25_indices_and_scores(ctx)
 
     row = {
-        "data_source": ctx.model_name,
+        "data_source": ctx.options.run_name,
         "grid_score_mean": float(np.mean(top_25_scores)),
         "grid_score_sds": float(np.std(top_25_scores, ddof=1)) if len(top_25_scores) > 1 else 0.0,
     }
@@ -56,7 +56,7 @@ def run_sparsities_csv(ctx: EvalContext) -> str:
     sparsities = [calculate_firing_sparsity(ratemaps[i]) for i in range(ratemaps.shape[0])]
 
     row = {
-        "data_source": ctx.model_name,
+        "data_source": ctx.options.run_name,
         "sparsity_mean": float(np.mean(sparsities)),
         "sparsity_sds": float(np.std(sparsities, ddof=1)) if len(sparsities) > 1 else 0.0,
     }
@@ -71,7 +71,7 @@ def run_trajectory_decodings_csv(ctx: EvalContext) -> str:
     err = torch.sqrt(((pos - pred_pos) ** 2).sum(-1)).mean()
 
     row = {
-        "data_source": ctx.model_name,
+        "data_source": ctx.options.run_name,
         "error": float(err.detach().cpu().item()),
     }
 
