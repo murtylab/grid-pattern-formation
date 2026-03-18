@@ -1,11 +1,13 @@
-import torch
-import numpy as np
-from tqdm import tqdm
-from ..utils.visualize import save_ratemaps
+import argparse
 import os
-
+import numpy as np
+import torch
+import torch.nn as nn
 import wandb
+from tqdm import tqdm
 
+from ..trajectory_generator import TrajectoryGenerator
+from ..utils.visualize import save_ratemaps
 
 def _to_wandb_config(options):
     config = {}
@@ -17,11 +19,21 @@ def _to_wandb_config(options):
     return config
 
 class Trainer(object):
-    def __init__(self, options, model, trajectory_generator, restore=False):
+    def __init__(
+        self, 
+        options: argparse.Namespace, 
+        model: nn.Module, 
+        trajectory_generator: TrajectoryGenerator, 
+        restore=False
+    ):
+        
+        assert isinstance(trajectory_generator, TrajectoryGenerator), f"trajectory_generator must be an instance of TrajectoryGenerator but got: {type(trajectory_generator)}"
+
         self.options = options
         self.model = model
         self.trajectory_generator = trajectory_generator
         self.topographic_loss = options.use_topographic_loss
+        
         
         if self.topographic_loss:
             assert options.tau is not None, "tau value must be specified in options when using topographic loss"
@@ -140,10 +152,15 @@ class Trainer(object):
                     )
 
             if save and (epoch_idx % self.options.save_every_epochs == 0 or epoch_idx == 1):
-                ckpt_path = os.path.join(self.ckpt_dir, f"epoch_{epoch_idx}.pth")
-                torch.save(self.model, ckpt_path)
+                ckpt_path = os.path.join(self.ckpt_dir, f"epoch_{epoch_idx:06d}.pth")
+                torch.save(obj=self.model, f=ckpt_path)
                 save_ratemaps(
-                    self.model, self.trajectory_generator, self.options, step=epoch_idx
+                    model=self.model, 
+                    trajectory_generator=self.trajectory_generator, 
+                    options=self.options, 
+                    step=epoch_idx,
+                    res=20,
+                    n_avg=None
                 )                
            
 

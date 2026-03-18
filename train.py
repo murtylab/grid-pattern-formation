@@ -19,11 +19,26 @@ with open(args.config) as f:
 
 options = argparse.Namespace(**cfg)
 options.dtype = getattr(torch, options.dtype)
+
 if not torch.cuda.is_available() and "cuda" in str(options.device):
     options.device = "cpu"
 
 place_cells = PlaceCells(options)
-model = RNN(options, place_cells).to(options.device)
-trajectory_generator = TrajectoryGenerator(options, place_cells)
-trainer = Trainer(options, model, trajectory_generator)
+
+model = RNN(
+    options=options,
+    place_cells=place_cells,
+).to(options.device)
+
+trajectory_generator = TrajectoryGenerator(
+    options=options,
+    place_cells=place_cells,
+)
+
+trainer = Trainer(
+    options=options,
+    model=model,
+    trajectory_generator=trajectory_generator,
+    restore=False
+)
 trainer.train(n_epochs=options.n_epochs, n_steps=options.n_steps)
