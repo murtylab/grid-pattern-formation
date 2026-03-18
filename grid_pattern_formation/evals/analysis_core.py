@@ -16,11 +16,11 @@ def _savefig(path: str):
     plt.savefig(path, dpi=200, bbox_inches="tight")
     plt.close()
 
-def run_trajectory_decoding(ctx: EvalContext) -> str:
-    inputs, pos, _pc_outputs = ctx.trajectory_generator.get_test_batch()
+def run_trajectory_decoding(eval_context: EvalContext) -> str:
+    inputs, pos, _pc_outputs = eval_context.trajectory_generator.get_test_batch()
     pos = pos.detach().cpu().numpy()
-    pred_pos = ctx.place_cells.get_nearest_cell_pos(ctx.model.predict(inputs)).detach().cpu().numpy()
-    us = ctx.place_cells.us.detach().cpu().numpy()
+    pred_pos = eval_context.place_cells.get_nearest_cell_pos(eval_context.model.predict(inputs)).detach().cpu().numpy()
+    us = eval_context.place_cells.us.detach().cpu().numpy()
 
     fig = plt.figure(figsize=(5, 5))
     ax = fig.add_subplot(111)
@@ -32,22 +32,22 @@ def run_trajectory_decoding(ctx: EvalContext) -> str:
         ax.spines[axis].set_linewidth(2)
     ax.set_xticks([])
     ax.set_yticks([])
-    ax.set_xlim([-ctx.options.box_width / 2, ctx.options.box_width / 2])
-    ax.set_ylim([-ctx.options.box_height / 2, ctx.options.box_height / 2])
+    ax.set_xlim([-eval_context.options.box_width / 2, eval_context.options.box_width / 2])
+    ax.set_ylim([-eval_context.options.box_height / 2, eval_context.options.box_height / 2])
 
-    out_path = os.path.join(ctx.save_dir, "trajectory_decoding.png")
+    out_path = os.path.join(eval_context.save_dir, "trajectory_decoding.png")
     _savefig(out_path)
     return out_path
 
-def run_place_cell_outputs(ctx: EvalContext, n_examples: int = 8) -> str:
-    inputs, _pos, pc_outputs = ctx.trajectory_generator.get_test_batch()
-    preds = ctx.model.predict(inputs)
+def run_place_cell_outputs(eval_context: EvalContext, n_examples: int = 8) -> str:
+    inputs, _pos, pc_outputs = eval_context.trajectory_generator.get_test_batch()
+    preds = eval_context.model.predict(inputs)
 
-    preds = preds.reshape(-1, ctx.options.Np).detach().cpu()
-    pc_outputs = ctx.model.softmax(pc_outputs).reshape(-1, ctx.options.Np).detach().cpu()
+    preds = preds.reshape(-1, eval_context.options.Np).detach().cpu()
+    pc_outputs = eval_context.model.softmax(pc_outputs).reshape(-1, eval_context.options.Np).detach().cpu()
 
-    pc_pred = ctx.place_cells.grid_pc(preds[:100])
-    pc_true = ctx.place_cells.grid_pc(pc_outputs[:100])
+    pc_pred = eval_context.place_cells.grid_pc(preds[:100])
+    pc_true = eval_context.place_cells.grid_pc(pc_outputs[:100])
 
     plt.figure(figsize=(16, 4))
     for i in range(n_examples):
@@ -65,27 +65,27 @@ def run_place_cell_outputs(ctx: EvalContext, n_examples: int = 8) -> str:
         plt.axis("off")
 
     plt.suptitle("Place Cell Outputs", fontsize=16)
-    out_path = os.path.join(ctx.save_dir, "place_cell_outputs.png")
+    out_path = os.path.join(eval_context.save_dir, "place_cell_outputs.png")
     _savefig(out_path)
     return out_path
 
-def compute_grid_scores(ctx: EvalContext, lo_res: int = 20, n_avg: int = 100) -> Dict[str, np.ndarray]:
+def compute_grid_scores(eval_context: EvalContext, lo_res: int = 20, n_avg: int = 100) -> Dict[str, np.ndarray]:
     cache_key = ("grid_scores", lo_res, n_avg)
-    if cache_key in ctx.cache:
-        return ctx.cache[cache_key]
+    if cache_key in eval_context.cache:
+        return eval_context.cache[cache_key]
 
     _activations_lores, rate_map_lores, _g, _pos = get_cached_ratemaps(
-        ctx,
+        eval_context,
         res=lo_res,
         n_avg=n_avg,
-        ng=ctx.options.Ng,
+        ng=eval_context.options.Ng,
     )
 
     starts = [0.2] * 10
     ends = np.linspace(0.4, 1.0, num=10)
     coord_range = (
-        (-ctx.options.box_width / 2, ctx.options.box_width / 2),
-        (-ctx.options.box_height / 2, ctx.options.box_height / 2),
+        (-eval_context.options.box_width / 2, eval_context.options.box_width / 2),
+        (-eval_context.options.box_height / 2, eval_context.options.box_height / 2),
     )
     scorer = GridScorer(lo_res, coord_range, zip(starts, ends.tolist()))
 
@@ -102,16 +102,24 @@ def compute_grid_scores(ctx: EvalContext, lo_res: int = 20, n_avg: int = 100) ->
         "max_60_ind": np.array(max_60_ind),
         "rate_map_lores": rate_map_lores,
     }
-    ctx.cache[cache_key] = out
+    eval_context.cache[cache_key] = out
     return out
 
-def run_grid_score_panels(ctx: EvalContext, res: int = 50, n_avg: int = 100, n_plot: int = 25) -> Dict[str, str]:
-    activations, _rate_map, _g, _pos = get_cached_ratemaps(ctx, res=res, n_avg=n_avg, ng=ctx.options.Ng)
-    scores = compute_grid_scores(ctx)
+def run_grid_score_panels(eval_context: EvalContext, res: int = 50, n_avg: int = 100, n_plot: int = 25) -> Dict[str, str]:
+    from .core import compute_ratemaps
+    activations, _rate_map, _g, _pos = compute_ratemaps(
+            model=eval_context.model,
+            trajectory_generator=eval_context.trajectory_generator,
+            options=eval_context.options,
+            res=res,
+            n_avg=n_avg,
+            Ng=eval_context.options.Ng,
+        )
+    scores = compute_grid_scores(eval_context)
     score_60 = scores["score_60"]
 
     idxs = np.flip(np.argsort(score_60))
-    ng = ctx.options.Ng
+    ng = eval_context.options.Ng
 
     outputs = {}
 
@@ -123,7 +131,7 @@ def run_grid_score_panels(ctx: EvalContext, res: int = 50, n_avg: int = 100, n_p
         fontsize=14,
     )
     plt.axis("off")
-    out_high = os.path.join(ctx.save_dir, "grid_scores_high.png")
+    out_high = os.path.join(eval_context.save_dir, "grid_scores_high.png")
     _savefig(out_high)
     outputs["high"] = out_high
 
@@ -135,7 +143,7 @@ def run_grid_score_panels(ctx: EvalContext, res: int = 50, n_avg: int = 100, n_p
         fontsize=14,
     )
     plt.axis("off")
-    out_med = os.path.join(ctx.save_dir, "grid_scores_medium.png")
+    out_med = os.path.join(eval_context.save_dir, "grid_scores_medium.png")
     _savefig(out_med)
     outputs["medium"] = out_med
 
@@ -147,27 +155,27 @@ def run_grid_score_panels(ctx: EvalContext, res: int = 50, n_avg: int = 100, n_p
         fontsize=14,
     )
     plt.axis("off")
-    out_low = os.path.join(ctx.save_dir, "grid_scores_low.png")
+    out_low = os.path.join(eval_context.save_dir, "grid_scores_low.png")
     _savefig(out_low)
     outputs["low"] = out_low
 
     return outputs
 
-def run_grid_score_histogram(ctx: EvalContext) -> str:
-    scores = compute_grid_scores(ctx)
+def run_grid_score_histogram(eval_context: EvalContext) -> str:
+    scores = compute_grid_scores(eval_context)
     score_60 = scores["score_60"]
 
     plt.figure(figsize=(6, 4))
     plt.hist(score_60, range=(-1, 2.5), bins=15, color="slategrey")
     plt.xlabel("Grid score")
     plt.ylabel("Count")
-    out_path = os.path.join(ctx.save_dir, "grid_score_histogram.png")
+    out_path = os.path.join(eval_context.save_dir, "grid_score_histogram.png")
     _savefig(out_path)
     return out_path
 
-def run_manifold_distance(ctx: EvalContext, res: int = 50, n_avg: int = 100) -> Dict[str, str]:
-    _activations, rate_map, _g, _pos = get_cached_ratemaps(ctx, res=res, n_avg=n_avg, ng=ctx.options.Ng)
-    scores = compute_grid_scores(ctx)
+def run_manifold_distance(eval_context: EvalContext, res: int = 50, n_avg: int = 100) -> Dict[str, str]:
+    _activations, rate_map, _g, _pos = get_cached_ratemaps(eval_context, res=res, n_avg=n_avg, ng=eval_context.options.Ng)
+    scores = compute_grid_scores(eval_context)
     score_60 = scores["score_60"]
 
     outputs = {}
@@ -192,12 +200,12 @@ def run_manifold_distance(ctx: EvalContext, res: int = 50, n_avg: int = 100) -> 
     cbar = fig.colorbar(im, cax=cbar_ax)
     cbar.ax.locator_params(nbins=3)
     cbar.outline.set_visible(False)
-    out_all = os.path.join(ctx.save_dir, "manifold_distance_all_cells.png")
+    out_all = os.path.join(eval_context.save_dir, "manifold_distance_all_cells.png")
     plt.savefig(out_all, dpi=200, bbox_inches="tight")
     plt.close(fig)
     outputs["all_cells"] = out_all
 
-    n_grid_cells = min(500, ctx.options.Ng)
+    n_grid_cells = min(500, eval_context.options.Ng)
     grid_sort = np.flip(np.argsort(score_60))
 
     fig = plt.figure(figsize=(8, 8))
@@ -218,7 +226,7 @@ def run_manifold_distance(ctx: EvalContext, res: int = 50, n_avg: int = 100) -> 
     cbar = fig.colorbar(im, cax=cbar_ax)
     cbar.ax.locator_params(nbins=3)
     cbar.outline.set_visible(False)
-    out_top = os.path.join(ctx.save_dir, "manifold_distance_top500_cells.png")
+    out_top = os.path.join(eval_context.save_dir, "manifold_distance_top500_cells.png")
     plt.savefig(out_top, dpi=200, bbox_inches="tight")
     plt.close(fig)
     outputs["top_500"] = out_top
