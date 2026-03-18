@@ -33,7 +33,7 @@ def load_options(config_path: str) -> argparse.Namespace:
 
     return options
 
-def build_context(checkpoint_path: str, config_path: str, results_root: str) -> EvalContext:
+def build_eval_context(checkpoint_path: str, config_path: str, results_root: str) -> EvalContext:
     options = load_options(config_path=config_path)
     place_cells = PlaceCells(options)
     model = RNN.from_pretrained(
