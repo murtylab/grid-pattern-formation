@@ -9,6 +9,7 @@ from tqdm import tqdm
 from ..trajectory_generator import TrajectoryGenerator
 from ..utils.visualize import save_ratemaps
 from topoloss import TopoLoss
+from topoloss.scheduler import TauScheduler
 
 def _to_wandb_config(options):
     config = {}
@@ -27,6 +28,7 @@ class Trainer(object):
         trajectory_generator: TrajectoryGenerator, 
         restore=False,
         topo_loss: TopoLoss = None,
+        tau_scheduler: TauScheduler = None,
     ):
         
         assert isinstance(trajectory_generator, TrajectoryGenerator), f"trajectory_generator must be an instance of TrajectoryGenerator but got: {type(trajectory_generator)}"
@@ -35,6 +37,10 @@ class Trainer(object):
         self.model = model
         self.trajectory_generator = trajectory_generator
         self.topo_loss = topo_loss
+        self.tau_scheduler = tau_scheduler
+
+        if topo_loss is None:
+            assert tau_scheduler is None, "tau_scheduler should be None when topo_loss is None"
         
         self.log_to_wandb = self.options.wandb_log
         self.wandb_run = None
@@ -141,10 +147,16 @@ class Trainer(object):
                         for key, value in topo_loss_dict.items():
                             log_data[f"topoloss/{key}"] = value
 
+                    if self.tau_scheduler is not None:
+                        log_data["topoloss/tau"] = self.tau_scheduler.get_current_tau()
+
                     wandb.log(
                         log_data,
                         step=epoch_idx * n_steps + step_idx,
                     )
+
+            if self.tau_scheduler is not None:
+                self.tau_scheduler.step()
 
             if save and (epoch_idx % self.options.save_every_epochs == 0 or epoch_idx == 1):
                 ckpt_path = os.path.join(self.ckpt_dir, f"epoch_{epoch_idx:06d}.pth")
