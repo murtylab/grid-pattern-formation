@@ -154,6 +154,7 @@ class Trainer(object):
             if save and (epoch_idx % self.options.save_every_epochs == 0 or epoch_idx == 1):
                 ckpt_path = os.path.join(self.ckpt_dir, f"epoch_{epoch_idx:06d}.pth")
                 torch.save(obj=self.model, f=ckpt_path)
+                print(f"\033[92mSaved: {ckpt_path}\033[0m")
                 save_ratemaps(
                     model=self.model, 
                     trajectory_generator=self.trajectory_generator, 
