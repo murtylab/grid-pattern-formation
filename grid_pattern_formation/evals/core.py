@@ -1,7 +1,6 @@
 import argparse
 import os
 from dataclasses import dataclass, field
-import sys
 from typing import Any, Dict, Tuple
 
 import torch
@@ -10,7 +9,6 @@ import yaml
 from ..models.rnn import RNN
 from ..place_cells import PlaceCells
 from ..trajectory_generator import TrajectoryGenerator
-from ..utils.load_weights import load_trained_weights
 from ..utils.visualize import compute_ratemaps
 
 @dataclass
