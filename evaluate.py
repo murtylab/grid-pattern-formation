@@ -48,59 +48,53 @@ ANALYSIS_RUNNERS = {
     "sparsities_csv": run_sparsities_csv,
 }
 
+parser = argparse.ArgumentParser(description="evaluation for trained models")
 
-def main():
-    parser = argparse.ArgumentParser(description="evaluation for trained models")
+parser.add_argument(
+    "--eval-name",
+    type=str,
+    default="all",
+    help=(
+        "what to run, you can enter all or a comma-seperated list"
+        f"available: {', '.join(ANALYSIS_RUNNERS.keys())}"
+    ),
+)
+parser.add_argument(
+    "--checkpoint-path",
+    type=str,
+    required=True,
+    help="path to trained model checkpoint",
+)
+parser.add_argument(
+    "--config",
+    type=str,
+    required=True,
+    help="path to config yaml",
+)
+parser.add_argument(
+    "--results-root",
+    type=str,
+    default="results",
+    help="root results directory",
+)
 
-    parser.add_argument(
-        "--eval-name",
-        type=str,
-        default="all",
-        help=(
-            "what to run, you can enter all or a comma-seperated list"
-            f"available: {', '.join(ANALYSIS_RUNNERS.keys())}"
-        ),
-    )
-    parser.add_argument(
-        "--checkpoint-path",
-        type=str,
-        required=True,
-        help="path to trained model checkpoint",
-    )
-    parser.add_argument(
-        "--config",
-        type=str,
-        required=True,
-        help="path to config yaml",
-    )
-    parser.add_argument(
-        "--results-root",
-        type=str,
-        default="results",
-        help="root results directory",
-    )
+args = parser.parse_args()
 
-    args = parser.parse_args()
+eval_context = build_context(
+    checkpoint_path=args.checkpoint_path,
+    config_path=args.config,
+    results_root=args.results_root,
+)
 
-    eval_context = build_context(
-        checkpoint_path=args.checkpoint_path,
-        config_path=args.config,
-        results_root=args.results_root,
-    )
+print(f"Will save results to: {eval_context.save_dir}")
 
-    print(f"Will save results to: {eval_context.save_dir}")
+outputs = {}
 
-    outputs = {}
+if args.eval_name == "all":
+    selected_runs = list(ANALYSIS_RUNNERS.keys())
+else:
+    selected_runs = [args.eval_name]
 
-    if args.eval_name == "all":
-        selected_runs = list(ANALYSIS_RUNNERS.keys())
-    else:
-        selected_runs = [args.eval_name]
-
-    for eval_name in selected_runs:
-        print(f"Running {eval_name}")
-        outputs[eval_name] = ANALYSIS_RUNNERS[eval_name](eval_context)
-
-
-if __name__ == "__main__":
-    main()
+for eval_name in selected_runs:
+    print(f"Running {eval_name}")
+    outputs[eval_name] = ANALYSIS_RUNNERS[eval_name](eval_context)
