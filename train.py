@@ -8,6 +8,7 @@ from grid_pattern_formation.models.trainer import Trainer
 from grid_pattern_formation.utils.seed import seed_everything
 from grid_pattern_formation.utils.config import load_config
 from topoloss import TopoLoss, LaplacianPyramid
+from topoloss.scheduler import TauScheduler
 
 seed_everything(0)
 
@@ -47,6 +48,15 @@ if options.topoloss_tau is not None:
         ],
         strict_layer_type=False
     )
+    if options.topoloss_tau_scheduler == "linear_decay":
+        tau_scheduler = TauScheduler(
+            topo_loss=topo_loss,
+            start_value=options.topoloss_tau,
+            end_value=0.0,
+            num_steps=options.n_epochs * options.n_steps,
+        )
+    else:
+        tau_scheduler = None
 else:
     pass
 
@@ -55,7 +65,8 @@ trainer = Trainer(
     model=model,
     trajectory_generator=trajectory_generator,
     restore=False,
-    topo_loss=topo_loss
+    topo_loss=topo_loss,
+    tau_scheduler=tau_scheduler,
 )
 
 trainer.train(n_epochs=options.n_epochs, n_steps=options.n_steps)
