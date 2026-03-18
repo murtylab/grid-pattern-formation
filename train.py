@@ -1,5 +1,4 @@
 import argparse
-import yaml
 import torch
 
 from grid_pattern_formation.place_cells import PlaceCells
@@ -7,6 +6,7 @@ from grid_pattern_formation.trajectory_generator import TrajectoryGenerator
 from grid_pattern_formation.models.rnn import RNN
 from grid_pattern_formation.models.trainer import Trainer
 from grid_pattern_formation.utils.seed import seed_everything
+from grid_pattern_formation.utils.config import load_config
 
 seed_everything(0)
 
@@ -14,10 +14,9 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--config", type=str, required=True, help="path to config yaml")
 args = parser.parse_args()
 
-with open(args.config) as f:
-    cfg = yaml.safe_load(f)
+config = load_config(config_path=args.config)
 
-options = argparse.Namespace(**cfg)
+options = argparse.Namespace(**config)
 options.dtype = getattr(torch, options.dtype)
 
 if not torch.cuda.is_available() and "cuda" in str(options.device):
