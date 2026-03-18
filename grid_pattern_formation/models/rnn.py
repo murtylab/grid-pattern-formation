@@ -81,10 +81,11 @@ class RNN(torch.nn.Module):
         """
 
         preds = self.predict(inputs)
-        yhat = torch.clamp(
-            self.softmax(preds), min=1e-8, max=1.0
-        )  # NOTE: why is the clamp necessary? original authors dont use it
-        loss = -(pc_outputs * torch.log(yhat)).sum(-1).mean()
+        
+        preds_flat = rearrange(preds, "b s p -> (b s) p")
+        pc_outputs_flat = rearrange(pc_outputs, "b s p -> (b s) p")
+
+        loss = F.cross_entropy(input = preds_flat, target = pc_outputs_flat)
 
         # L2 Weight regularization
         loss += self.weight_decay * (self.RNN.weight_hh_l0**2).sum()
