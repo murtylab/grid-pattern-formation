@@ -39,7 +39,10 @@ def build_context(checkpoint_path: str, config_path: str, results_root: str) -> 
     model = RNN.from_pretrained(
         checkpoint_path=checkpoint_path,
         device=options.device,
+        options=options,
+        place_cells=place_cells,
     ).to(device=options.device)
+    model.options=options
     trajectory_generator = TrajectoryGenerator(options=options, place_cells=place_cells)
 
     results_dir = os.path.abspath(results_root)
