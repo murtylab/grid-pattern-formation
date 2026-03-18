@@ -104,13 +104,14 @@ class RNN(torch.nn.Module):
         return loss, err
 
     @classmethod
-    def from_pretrained(cls, checkpoint_path, device):
+    def from_pretrained(cls, checkpoint_path, device, options=None, place_cells=None):
         model_or_state_dict = torch.load(checkpoint_path, map_location=device, weights_only=False)
 
         if isinstance(model_or_state_dict, torch.nn.Module):
             model = model_or_state_dict
         elif isinstance(model_or_state_dict, dict):
-            model = cls(options=None, place_cells=None)  # dummy init, will be overwritten by state dict
+            assert options is not None and place_cells is not None, "Options and place cells must be provided when loading from state dict"
+            model = cls(options=options, place_cells=place_cells)  # dummy init, will be overwritten by state dict
             model.load_state_dict(model_or_state_dict, strict=True)
             
         return model
