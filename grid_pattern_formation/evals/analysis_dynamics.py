@@ -4,7 +4,7 @@ from typing import Dict
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy
-
+from tqdm import tqdm
 from .core import EvalContext, get_cached_ratemaps
 from .analysis_connectivity import _compute_phase_order
 
@@ -78,18 +78,150 @@ def run_thetas_plot(ctx: EvalContext, res: int = 50, n_avg: int = 100) -> str:
     out_path = os.path.join(ctx.save_dir, "thetas_plot.png")
     _savefig(out_path)
     return out_path
+    
+
+def get_fourier_spectrum(
+    eval_context: EvalContext,
+    res: int = 50,
+    n_avg: int = 100,
+):
+    # Fourier transform 
+    Ng = eval_context.options.Ng
+    rm_fft_real = np.zeros([Ng,res,res])
+    rm_fft_imag = np.zeros([Ng,res,res])
+
+    _activations, rate_map, _g, _pos = get_cached_ratemaps(ctx=eval_context, res=res, n_avg=n_avg, ng=eval_context.options.Ng)
+
+    for i in tqdm(range(Ng)):
+        rm_fft_real[i] = np.real(np.fft.fft2(rate_map[i].reshape([res,res])))
+        rm_fft_imag[i] = np.imag(np.fft.fft2(rate_map[i].reshape([res,res])))
+        
+    rm_fft = rm_fft_real + 1j * rm_fft_imag
+    
+    im = (np.real(rm_fft)**2).mean(0)
+    im[0,0] = 0
+    return im
+
+def run_neural_sheet(
+    eval_context: EvalContext,
+    res=50,
+    n_avg=100,
+):
+    im = get_fourier_spectrum(eval_context=eval_context, res=res, n_avg=n_avg)
+
+    width = 6
+    idxs = np.arange(-width+1, width)
+    x2, y2 = np.meshgrid(np.arange(2*width-1), np.arange(2*width-1))
+
+    plt.scatter(x2,y2,c=im[idxs][:,idxs], s=300, cmap='Oranges')
+    plt.axis('equal')
+    plt.axis('off')
+    plt.title('Mean power')
+    out_path = os.path.join(eval_context.save_dir, "neural_sheet.png")
+    _savefig(out_path)
+
+    peak_coordinates = find_peak_coordinates(im, n_peaks=3)
+    print(f"Found peak coordinates: {peak_coordinates}")
+    return out_path
+
+def find_peak_coordinates(
+    im: np.ndarray,
+    n_peaks: int = 3,
+) -> list[list[float, float]]:
+    from scipy.ndimage import maximum_filter
+    
+    res = im.shape[0]
+    im = im.copy()
+    im[0, 0] = 0
+    
+    local_max = (im == maximum_filter(im, size=3))
+    local_max[0, 0] = False
+    
+    ys, xs = np.where(local_max)
+    powers = im[ys, xs]
+    order = np.argsort(powers)[::-1]
+    
+    def to_freq(idx, res):
+        if idx > res // 2:
+            return idx - res
+        return idx
+    
+    def refine(im, ix, iy, res):
+        if 0 < ix < res - 1:
+            left = im[iy, ix - 1]
+            center = im[iy, ix]
+            right = im[iy, ix + 1]
+            denom = left - 2 * center + right
+            dx = 0.5 * (left - right) / denom if denom != 0 else 0.0
+        else:
+            dx = 0.0
+            
+        if 0 < iy < res - 1:
+            above = im[iy - 1, ix]
+            center = im[iy, ix]
+            below = im[iy + 1, ix]
+            denom = above - 2 * center + below
+            dy = 0.5 * (above - below) / denom if denom != 0 else 0.0
+        else:
+            dy = 0.0
+        
+        kx = to_freq(ix, res) + dx
+        ky = to_freq(iy, res) + dy
+        return [float(kx), float(ky)]
+    
+    def normalize_sign(kx, ky):
+        """Flip to positive half: prefer kx > 0, or if kx ~ 0, prefer ky > 0."""
+        if kx < -0.5 or (abs(kx) < 0.5 and ky < -0.5):
+            return -kx, -ky
+        return kx, ky
+    
+    peaks = []
+    used_freqs = []
+    
+    for idx in order:
+        if len(peaks) >= n_peaks:
+            break
+            
+        ix, iy = int(xs[idx]), int(ys[idx])
+        kx_int = to_freq(ix, res)
+        ky_int = to_freq(iy, res)
+        
+        # Normalize to positive half for dedup
+        nkx, nky = normalize_sign(kx_int, ky_int)
+        
+        is_duplicate = False
+        for ukx, uky in used_freqs:
+            if nkx == ukx and nky == uky:
+                is_duplicate = True
+                break
+        if is_duplicate:
+            continue
+        
+        peak = refine(im, ix, iy, res)
+        # Normalize the refined peak too
+        pk_x, pk_y = normalize_sign(peak[0], peak[1])
+        peaks.append([pk_x, pk_y])
+        used_freqs.append((nkx, nky))
+    
+    return peaks
 
 def run_torus_construction(ctx: EvalContext, res: int = 50, n_avg: int = 100) -> str:
     _activations, rate_map, _g, _pos = get_cached_ratemaps(ctx, res=res, n_avg=n_avg, ng=ctx.options.Ng)
+
+    im = get_fourier_spectrum(ctx, res=res, n_avg=n_avg)
+    peaks = find_peak_coordinates(im, n_peaks=3)
+    k1, k2, k3 = peaks
+
+    ## round off the coordinates to the nearest integers to get the main frequencies
+    k1 = [int(round(k)) for k in k1]
+    k2 = [int(round(k)) for k in k2]
+    k3 = [int(round(k)) for k in k3]
+    print(f"Main frequency peaks (rounded): {k1}, {k2}, {k3}")
 
     X_centered = rate_map - rate_map.mean(-1, keepdims=True)
     X_centered -= X_centered.mean(-1, keepdims=True)
     Ua, _S, _V = scipy.linalg.svd(X_centered)
     rm_embed = Ua.T @ rate_map
-
-    k1 = [3, 0]
-    k2 = [2, 2.5]
-    k3 = [-1, 2.3]
 
     freq = 1
     x = np.mgrid[:res, :res] * 2 * np.pi / res

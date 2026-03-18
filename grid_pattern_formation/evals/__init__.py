@@ -15,6 +15,7 @@ from .analysis_core import (
     run_trajectory_decoding,
 )
 from .analysis_dynamics import (
+    run_neural_sheet,
     run_projection_onto_sliding_mode,
     run_thetas_plot,
     run_torus_construction,
@@ -43,6 +44,7 @@ analysis_map = {
     "torus_construction": run_torus_construction,
     "grid_scores_csv": run_grid_scores_csv,
     "sparsities_csv": run_sparsities_csv,
+    "neural_sheet": run_neural_sheet,
 }
 
 def run_eval_by_name(
