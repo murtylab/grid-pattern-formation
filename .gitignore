@@ -2,7 +2,6 @@
 *wandb/
 checkpoints/
 *__pycache__/
-models/
 results/
 notes.txt
 *.DS_Store
