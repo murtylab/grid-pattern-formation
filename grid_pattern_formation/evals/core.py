@@ -9,6 +9,7 @@ from ..models.rnn import RNN
 from ..place_cells import PlaceCells
 from ..trajectory_generator import TrajectoryGenerator
 from ..utils.visualize import compute_ratemaps
+from ..utils.config import load_config
 
 @dataclass
 class EvalContext:
@@ -20,21 +21,10 @@ class EvalContext:
     save_dir: str
     cache: dict = field(default_factory=dict)
 
-def load_options(config_path: str) -> argparse.Namespace:
-    with open(config_path) as f:
-        cfg = yaml.safe_load(f)
-
-    options = argparse.Namespace(**cfg)
-    if hasattr(options, "dtype") and isinstance(options.dtype, str):
-        options.dtype = getattr(torch, options.dtype)
-
-    if not torch.cuda.is_available() and "cuda" in str(options.device):
-        options.device = "cpu"
-
-    return options
 
 def build_eval_context(checkpoint_path: str, config_path: str, results_root: str) -> EvalContext:
-    options = load_options(config_path=config_path)
+    options = load_config(config_path=config_path)
+    options.device = torch.device(options.device) 
     place_cells = PlaceCells(options)
     model = RNN.from_pretrained(
         checkpoint_path=checkpoint_path,

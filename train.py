@@ -14,10 +14,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--config", type=str, required=True, help="path to config yaml")
 args = parser.parse_args()
 
-config = load_config(config_path=args.config)
-
-options = argparse.Namespace(**config)
-options.dtype = getattr(torch, options.dtype)
+options = load_config(config_path=args.config)
 
 if not torch.cuda.is_available() and "cuda" in str(options.device):
     options.device = "cpu"
