@@ -1,1 +1,1 @@
-python train.py --config configs/replicate_baseline.yaml
+python train.py --config configs/topo.yaml
