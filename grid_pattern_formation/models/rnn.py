@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as F
 from topoloss import TopoLoss
+from einops import rearrange
 
 class RNN(torch.nn.Module):
     def __init__(self, options, place_cells):
