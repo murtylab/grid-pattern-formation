@@ -10,3 +10,4 @@ notes.txt
 *.csv
 grid_pattern_formation.egg-info/
 *.pth
+*.npy
