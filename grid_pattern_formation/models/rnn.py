@@ -105,7 +105,14 @@ class RNN(torch.nn.Module):
 
     @classmethod
     def from_pretrained(cls, checkpoint_path, device):
-        model = torch.load(checkpoint_path, map_location=device, weights_only=False)
+        model_or_state_dict = torch.load(checkpoint_path, map_location=device, weights_only=False)
+
+        if isinstance(model_or_state_dict, torch.nn.Module):
+            model = model_or_state_dict
+        elif isinstance(model_or_state_dict, dict):
+            model = cls(options=None, place_cells=None)  # dummy init, will be overwritten by state dict
+            model.load_state_dict(model_or_state_dict, strict=True)
+            
         return model
 
 
