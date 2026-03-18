@@ -63,17 +63,3 @@ def run_sparsities_csv(eval_context: EvalContext) -> str:
 
     csv_path = os.path.join(eval_context.results_dir, eval_context.options.run_name, "sparsities.csv")
     return _append_row(csv_path, ["data_source", "sparsity_mean", "sparsity_sds"], row)
-
-def run_trajectory_decodings_csv(eval_context: EvalContext) -> str:
-    inputs, pos, _pc_outputs = eval_context.trajectory_generator.get_test_batch()
-    pred_pos = eval_context.place_cells.get_nearest_cell_pos(eval_context.model.predict(inputs))
-
-    err = torch.sqrt(((pos - pred_pos) ** 2).sum(-1)).mean()
-
-    row = {
-        "data_source": eval_context.options.run_name,
-        "error": float(err.detach().cpu().item()),
-    }
-
-    csv_path = os.path.join(eval_context.results_dir, "trajectory_decodings.csv")
-    return _append_row(csv_path, ["data_source", "error"], row)

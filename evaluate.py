@@ -25,7 +25,6 @@ ANALYSIS_RUNNERS = {
     "torus_construction": run_torus_construction,
     "grid_scores_csv": run_grid_scores_csv,
     "sparsities_csv": run_sparsities_csv,
-    "trajectory_decodings_csv": run_trajectory_decodings_csv,
 }
 
 
