@@ -129,14 +129,20 @@ def run_unsorted_connectivity_eigvs(ctx: EvalContext) -> str:
         out_path=out_path,
     )
 
-def run_sorted_connectivity_eigvs(ctx: EvalContext, res: int = 50, n_avg: int = 100) -> str:
+def run_sorted_connectivity_eigvs(ctx: EvalContext, res: int = 50, n_avg: int = 100, use_gpu: bool = True) -> str:
     n = np.sqrt(ctx.options.Ng).astype(int)
     _activations, rate_map, _g, _pos = get_cached_ratemaps(ctx, res=res, n_avg=n_avg, ng=ctx.options.Ng)
     total_order, _phases = _compute_phase_order(ctx, rate_map, res)
 
     J = ctx.model.RNN.weight_hh_l0.detach().cpu().numpy().T
     Jsort = J[total_order][:, total_order]
-    _eigenvalues, eigenvectors = np.linalg.eig(Jsort)
+    if not use_gpu:
+        _eigenvalues, eigenvectors = np.linalg.eig(Jsort)
+    else:
+        import torch
+        Jsort_gpu = torch.from_numpy(Jsort).float().cuda()
+        eigvals_gpu, eigvecs_gpu = torch.linalg.eig(Jsort_gpu)
+        eigenvectors = eigvecs_gpu.cpu().numpy()
     eigvs_rot = eigenvectors.T
 
     out_path = os.path.join(ctx.save_dir, "eigvs2_sorted.png")
