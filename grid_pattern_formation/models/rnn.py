@@ -12,7 +12,7 @@ class RNN(torch.nn.Module):
         self.weight_decay = options.weight_decay
         self.place_cells = place_cells
         self.device = torch.device(options.device)
-        self.dtype = torch.float32 
+        self.dtype = options.dtype
 
         # Input weights
         self.encoder = torch.nn.Linear(
@@ -102,13 +102,18 @@ class RNN(torch.nn.Module):
 
     @classmethod
     def from_pretrained(cls, checkpoint_path, device, options=None, place_cells=None):
-        model_or_state_dict = torch.load(checkpoint_path, map_location=device, weights_only=False)
+        # Load to CPU first to avoid MPS float64 errors, then move to device
+        model_or_state_dict = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
 
         if isinstance(model_or_state_dict, torch.nn.Module):
             model = model_or_state_dict
+            if options is not None:
+                model = model.to(dtype=options.dtype)
+            if place_cells is not None:
+                model.place_cells = place_cells
         elif isinstance(model_or_state_dict, dict):
             assert options is not None and place_cells is not None, "Options and place cells must be provided when loading from state dict"
-            model = cls(options=options, place_cells=place_cells)  # dummy init, will be overwritten by state dict
+            model = cls(options=options, place_cells=place_cells)
             model.load_state_dict(model_or_state_dict, strict=True)
-            
+
         return model

@@ -13,16 +13,14 @@ class PlaceCells(object):
         self.is_periodic = options.periodic
         self.DoG = options.DoG
         self.device = options.device
+        self.dtype = options.dtype
         self.softmax = torch.nn.Softmax(dim=-1)
 
         # Randomly tile place cell centers across environment
         np.random.seed(0)
         usx = np.random.uniform(-self.box_width / 2, self.box_width / 2, (self.Np,))
         usy = np.random.uniform(-self.box_width / 2, self.box_width / 2, (self.Np,))
-        if str(self.device) == "mps":
-            self.us = torch.tensor(np.vstack([usx, usy]).T, dtype=torch.float32)
-        else:
-            self.us = torch.tensor(np.vstack([usx, usy]).T)
+        self.us = torch.tensor(np.vstack([usx, usy]).T, dtype=self.dtype)
         # If using a GPU, put on GPU
         self.us = self.us.to(self.device)
         # self.us = torch.tensor(np.load('models/example_pc_centers.npy')).cuda()
@@ -37,7 +35,7 @@ class PlaceCells(object):
         Returns:
             outputs: Place cell activations with shape [batch_size, sequence_length, Np].
         """
-        d = torch.abs(pos[:, :, None, :] - self.us[None, None, ...]).float()
+        d = torch.abs(pos[:, :, None, :] - self.us[None, None, ...]).to(dtype=self.dtype)
 
         if self.is_periodic:
             dx = d[:, :, :, 0]
@@ -99,23 +97,13 @@ class PlaceCells(object):
 
     def compute_covariance(self, res=30):
         """Compute spatial covariance matrix of place cell outputs"""
-        if str(self.device) == "mps":
-            pos = np.array(
-                np.meshgrid(
-                    np.linspace(-self.box_width / 2, self.box_width / 2, res),
-                    np.linspace(-self.box_height / 2, self.box_height / 2, res),
-                ),
-                dtype=np.float32,
-            ).T
-            pos = torch.tensor(pos, dtype=torch.float32)
-        else:
-            pos = np.array(
-                np.meshgrid(
-                    np.linspace(-self.box_width / 2, self.box_width / 2, res),
-                    np.linspace(-self.box_height / 2, self.box_height / 2, res),
-                )
-            ).T
-            pos = torch.tensor(pos)
+        pos = np.array(
+            np.meshgrid(
+                np.linspace(-self.box_width / 2, self.box_width / 2, res),
+                np.linspace(-self.box_height / 2, self.box_height / 2, res),
+            )
+        ).T
+        pos = torch.tensor(pos, dtype=self.dtype)
 
         # Put on GPU if available
         pos = pos.to(self.device)

@@ -14,6 +14,9 @@ seed_everything(0)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--config", type=str, required=True, help="path to config yaml")
+parser.add_argument("--checkpoint", type=str, required=True, help="path to model checkpoint (.pth)")
+parser.add_argument("--start_epoch", type=int, required=True, help="epoch to resume from")
+parser.add_argument("--wandb_run_id", type=str, default=None, help="wandb run ID to resume logging to")
 args = parser.parse_args()
 
 options = load_config(config_path=args.config)
@@ -21,7 +24,9 @@ options = load_config(config_path=args.config)
 
 place_cells = PlaceCells(options)
 
-model = RNN(
+model = RNN.from_pretrained(
+    checkpoint_path=args.checkpoint,
+    device=options.device,
     options=options,
     place_cells=place_cells,
 ).to(options.device)
@@ -31,22 +36,10 @@ trajectory_generator = TrajectoryGenerator(
     place_cells=place_cells,
 )
 
+topo_loss = None
+tau_scheduler = None
 
 if options.topoloss_tau is not None:
-    # topo_loss = TopoLoss(
-    #     losses=[
-    #         LaplacianPyramid.from_layer(
-    #             model=model,
-    #             layer=model.RNN,
-    #             factor_h=9,
-    #             factor_w=9,
-    #             scale=options.topoloss_tau,
-    #             custom_weight_attribute_name="weight_hh_l0"
-    #         )
-    #     ],
-    #     strict_layer_type=False
-    # )
-
     if options.topoloss_type == "laplacian_pyramid":
         loss_config = LaplacianPyramid.from_layer(
             model=model,
@@ -88,8 +81,11 @@ if options.topoloss_tau is not None:
         )
     else:
         tau_scheduler = None
-else:
-    pass
+
+    # Move the tau scheduler to the correct position
+    if tau_scheduler is not None:
+        for _ in range(args.start_epoch - 1):
+            tau_scheduler.step()
 
 trainer = Trainer(
     options=options,
@@ -98,6 +94,16 @@ trainer = Trainer(
     restore=False,
     topo_loss=topo_loss,
     tau_scheduler=tau_scheduler,
+    wandb_run_id=args.wandb_run_id,
 )
 
-trainer.train(n_epochs=options.n_epochs, n_steps=options.n_steps)
+print(f"Resuming training from epoch {args.start_epoch}/{options.n_epochs}")
+print(f"Loaded checkpoint: {args.checkpoint}")
+if args.wandb_run_id:
+    print(f"Resuming wandb run: {args.wandb_run_id}")
+
+trainer.train(
+    n_epochs=options.n_epochs,
+    n_steps=options.n_steps,
+    start_epoch=args.start_epoch,
+)

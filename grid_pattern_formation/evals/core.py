@@ -24,7 +24,6 @@ class EvalContext:
 
 def build_eval_context(checkpoint_path: str, config_path: str, results_root: str) -> EvalContext:
     options = load_config(config_path=config_path)
-    options.device = torch.device(options.device) 
     place_cells = PlaceCells(options)
     model = RNN.from_pretrained(
         checkpoint_path=checkpoint_path,

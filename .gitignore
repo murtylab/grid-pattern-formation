@@ -11,6 +11,8 @@ notes.txt
 grid_pattern_formation.egg-info/
 *.pth
 *.npy
-train_colab.ipynb
+*colab*.ipynb
 *.yaml
 !replicate_baseline.yaml
+archive/
+grid_pattern_formation/models/topographic_loss.py

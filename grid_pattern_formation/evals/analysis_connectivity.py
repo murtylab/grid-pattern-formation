@@ -140,7 +140,8 @@ def run_sorted_connectivity_eigvs(ctx: EvalContext, res: int = 50, n_avg: int = 
         _eigenvalues, eigenvectors = np.linalg.eig(Jsort)
     else:
         import torch
-        Jsort_gpu = torch.from_numpy(Jsort).float().cuda()
+        device = ctx.options.device
+        Jsort_gpu = torch.from_numpy(Jsort).float().to(device)
         eigvals_gpu, eigvecs_gpu = torch.linalg.eig(Jsort_gpu)
         eigenvectors = eigvecs_gpu.cpu().numpy()
     eigvs_rot = eigenvectors.T

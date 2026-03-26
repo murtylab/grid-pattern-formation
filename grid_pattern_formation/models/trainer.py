@@ -22,15 +22,16 @@ def _to_wandb_config(options):
 
 class Trainer(object):
     def __init__(
-        self, 
-        options: argparse.Namespace, 
-        model: nn.Module, 
-        trajectory_generator: TrajectoryGenerator, 
+        self,
+        options: argparse.Namespace,
+        model: nn.Module,
+        trajectory_generator: TrajectoryGenerator,
         restore=False,
         topo_loss: TopoLoss = None,
         tau_scheduler: TauScheduler = None,
+        wandb_run_id: str = None,
     ):
-        
+
         assert isinstance(trajectory_generator, TrajectoryGenerator), f"trajectory_generator must be an instance of TrajectoryGenerator but got: {type(trajectory_generator)}"
 
         self.options = options
@@ -41,16 +42,19 @@ class Trainer(object):
 
         if topo_loss is None:
             assert tau_scheduler is None, "tau_scheduler should be None when topo_loss is None"
-        
+
         self.log_to_wandb = self.options.wandb_log
         self.wandb_run = None
         if self.log_to_wandb:
-
-            self.wandb_run = wandb.init(
+            wandb_kwargs = dict(
                 project=self.options.wandb_project,
                 name=options.run_name,
                 config=_to_wandb_config(options),
             )
+            if wandb_run_id is not None:
+                wandb_kwargs["id"] = wandb_run_id
+                wandb_kwargs["resume"] = "must"
+            self.wandb_run = wandb.init(**wandb_kwargs)
 
         assert options.optimizer in [
             "Adam",
@@ -69,7 +73,7 @@ class Trainer(object):
         ckpt_path = os.path.join(self.ckpt_dir, "most_recent_model.pth")
         if restore and os.path.isdir(self.ckpt_dir) and os.path.isfile(ckpt_path):
             print(f"\033[92mRestoring model from {ckpt_path}\033[0m")
-            self.model.load_state_dict(torch.load(ckpt_path))
+            self.model.load_state_dict(torch.load(ckpt_path, map_location="cpu"))
         else:
             if not os.path.isdir(self.ckpt_dir):
                 os.makedirs(self.ckpt_dir, exist_ok=True)
@@ -113,11 +117,11 @@ class Trainer(object):
         else:
             raise ValueError(f"Unknown scheduler type: {self.options.topoloss_scheduler_type}.")
 
-    def train(self, n_epochs: int, n_steps: int, save: bool = True):
+    def train(self, n_epochs: int, n_steps: int, save: bool = True, start_epoch: int = 1):
         gen = self.trajectory_generator.get_generator()
 
 
-        for epoch_idx in range(1, n_epochs + 1):
+        for epoch_idx in range(start_epoch, n_epochs + 1):
 
             step_bar = tqdm(
                 range(n_steps),
