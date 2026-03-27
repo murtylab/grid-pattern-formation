@@ -6,6 +6,7 @@ save_every_epochs: 10                           # save model checkpoint every n 
 n_steps: 1000                                   # number of steps per epoch
 workers: 4                                      # number of workers for data loading
 device: cuda
+dtype: float32
 
 # hyperparameters
 batch_size: 200                                 # batch size       
