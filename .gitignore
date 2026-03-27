@@ -16,3 +16,4 @@ grid_pattern_formation.egg-info/
 !replicate_baseline.yaml
 archive/
 grid_pattern_formation/models/topographic_loss.py
+notebooks/test_analyses.ipynb

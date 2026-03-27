@@ -23,12 +23,15 @@ def _compute_phase_order(ctx: EvalContext, rate_map: np.ndarray, res: int) -> Tu
     ng = ctx.options.Ng
     n = np.sqrt(ng).astype(int)
 
-    rm_fft_real = np.zeros([ng, res, res])
-    rm_fft_imag = np.zeros([ng, res, res])
-    for i in range(ng):
-        rm_fft_real[i] = np.real(np.fft.fft2(rate_map[i].reshape([res, res])))
-        rm_fft_imag[i] = np.imag(np.fft.fft2(rate_map[i].reshape([res, res])))
-    rm_fft = rm_fft_real + 1j * rm_fft_imag
+    #rm_fft_real = np.zeros([ng, res, res])
+    #rm_fft_imag = np.zeros([ng, res, res])
+    #for i in range(ng):
+    #    rm_fft_real[i] = np.real(np.fft.fft2(rate_map[i].reshape([res, res])))
+    #    rm_fft_imag[i] = np.imag(np.fft.fft2(rate_map[i].reshape([res, res])))
+    #rm_fft = rm_fft_real + 1j * rm_fft_imag
+    
+    rate_map_reshaped = rate_map.reshape(ng, res, res)
+    rm_fft = np.fft.fft2(rate_map_reshaped)
 
     k1 = [3, 0]
     k2 = [2, 3]
@@ -55,6 +58,26 @@ def _compute_phase_order(ctx: EvalContext, rate_map: np.ndarray, res: int) -> Tu
 
     total_order = get_2d_sort(s1, s2)
     out = (total_order, np.array(phases))
+    ctx.cache[cache_key] = out
+    return out
+
+def _compute_phase_original_order(ctx: EvalContext, rate_map: np.ndarray, res: int) -> Tuple[np.ndarray, np.ndarray]:
+    cache_key = ("phase_no_resort", res)
+    if cache_key in ctx.cache:
+        return ctx.cache[cache_key]
+
+    ng = ctx.options.Ng
+    
+    rate_map_reshaped = rate_map.reshape(ng, res, res)
+    rm_fft = np.fft.fft2(rate_map_reshaped)
+
+    ks = np.array([[3, 0], [2, 3], [-1, 3]]) 
+    
+    phases = np.array([np.angle(rm_fft[:, k[0], k[1]]) for k in ks])
+
+    total_order = np.arange(ng)
+
+    out = (total_order, phases)
     ctx.cache[cache_key] = out
     return out
 
