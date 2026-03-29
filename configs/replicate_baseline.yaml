@@ -36,9 +36,6 @@ periodic: False                                 # true = toroidal wrap, false = 
 box_width: 2.2                                  # meters
 box_height: 2.2                                 # meters        
 
-# compatibility
-sorscher_compatible: False
-
 # wandb
 wandb_log: True                                 # whether to log training metrics to wandb
 wandb_project: grid-pattern-formation           # wandb project name to log to. set to None to disable logging to wandb
