@@ -18,7 +18,6 @@ args = parser.parse_args()
 
 options = load_config(config_path=args.config)
 
-
 place_cells = PlaceCells(options)
 
 model = RNN(
