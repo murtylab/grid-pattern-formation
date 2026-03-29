@@ -13,9 +13,6 @@ class RNN(torch.nn.Module):
         self.place_cells = place_cells
         self.device = torch.device(options.device)
         self.dtype = options.dtype
-        
-        self.alive_lambda = getattr(options, "alive_lambda", 0.1)
-        self.alive_threshold = getattr(options, "alive_threshold", 0.01)
 
         # Input weights
         self.encoder = torch.nn.Linear(
@@ -35,9 +32,9 @@ class RNN(torch.nn.Module):
         self.softmax = torch.nn.Softmax(dim=-1)
         
         if options.activation == "relu":
-            self.initialize_weights()
+            self.initialize_kaiming_weights()
             
-    def initialize_weights(self):
+    def initialize_kaiming_weights(self):
         torch.nn.init.kaiming_normal_(self.encoder.weight, nonlinearity='relu')
         
         for name, param in self.RNN.named_parameters():
