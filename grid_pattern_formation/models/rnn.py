@@ -13,6 +13,10 @@ class RNN(torch.nn.Module):
         self.place_cells = place_cells
         self.device = torch.device(options.device)
         self.dtype = options.dtype
+        self.sorscher_compatible = getattr(options, "sorscher_compatible", False)
+        
+        self.alive_lambda = getattr(options, "alive_lambda", 0.1)
+        self.alive_threshold = getattr(options, "alive_threshold", 0.01)
 
         # Input weights
         self.encoder = torch.nn.Linear(
@@ -30,6 +34,18 @@ class RNN(torch.nn.Module):
             self.Ng, self.Np, bias=False, dtype=self.dtype, device=self.device
         )
         self.softmax = torch.nn.Softmax(dim=-1)
+        
+        if getattr(options, "activation", "relu").lower() == "relu":
+            self._initialize_weights()
+            
+    def _initialize_weights(self):
+        torch.nn.init.kaiming_normal_(self.encoder.weight, nonlinearity='relu')
+        
+        for name, param in self.RNN.named_parameters():
+            if 'weight' in name:
+                torch.nn.init.kaiming_normal_(param, nonlinearity='relu')
+            elif 'bias' in name:
+                torch.nn.init.zeros_(param)
 
     def g(self, inputs):
         """
@@ -55,7 +71,8 @@ class RNN(torch.nn.Module):
             place_preds: Predicted place cell activations with shape
                 [batch_size, sequence_length, Np].
         """
-        place_preds = self.decoder(self.g(inputs))
+        g = self.g(inputs)
+        place_preds = self.decoder(g)
 
         return place_preds
 
@@ -80,11 +97,10 @@ class RNN(torch.nn.Module):
         """
 
         preds = self.predict(inputs)
-        
+
         preds_flat = rearrange(preds, "b s p -> (b s) p")
         pc_outputs_flat = rearrange(pc_outputs, "b s p -> (b s) p")
-
-        loss = F.cross_entropy(input = preds_flat, target = pc_outputs_flat)
+        loss = F.cross_entropy(input=preds_flat, target=pc_outputs_flat)
 
         # L2 Weight regularization
         loss += self.weight_decay * (self.RNN.weight_hh_l0**2).sum()

@@ -14,13 +14,17 @@ class PlaceCells(object):
         self.DoG = options.DoG
         self.device = options.device
         self.dtype = options.dtype
+        self.sorscher_compatible = getattr(options, "sorscher_compatible", False)
         self.softmax = torch.nn.Softmax(dim=-1)
 
         # Randomly tile place cell centers across environment
         np.random.seed(0)
         usx = np.random.uniform(-self.box_width / 2, self.box_width / 2, (self.Np,))
         usy = np.random.uniform(-self.box_width / 2, self.box_width / 2, (self.Np,))
-        self.us = torch.tensor(np.vstack([usx, usy]).T, dtype=self.dtype)
+        if self.sorscher_compatible:
+            self.us = torch.tensor(np.vstack([usx, usy]).T)
+        else:
+            self.us = torch.tensor(np.vstack([usx, usy]).T, dtype=self.dtype)
         # If using a GPU, put on GPU
         self.us = self.us.to(self.device)
         # self.us = torch.tensor(np.load('models/example_pc_centers.npy')).cuda()
@@ -35,7 +39,10 @@ class PlaceCells(object):
         Returns:
             outputs: Place cell activations with shape [batch_size, sequence_length, Np].
         """
-        d = torch.abs(pos[:, :, None, :] - self.us[None, None, ...]).to(dtype=self.dtype)
+        if self.sorscher_compatible:
+            d = torch.abs(pos[:, :, None, :] - self.us[None, None, ...]).float()
+        else:
+            d = torch.abs(pos[:, :, None, :] - self.us[None, None, ...]).to(dtype=self.dtype)
 
         if self.is_periodic:
             dx = d[:, :, :, 0]
