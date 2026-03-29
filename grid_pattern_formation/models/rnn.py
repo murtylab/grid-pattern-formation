@@ -15,9 +15,6 @@ class RNN(torch.nn.Module):
         self.dtype = options.dtype
         self.sorscher_compatible = getattr(options, "sorscher_compatible", False)
         
-        self.alive_lambda = getattr(options, "alive_lambda", 0.1)
-        self.alive_threshold = getattr(options, "alive_threshold", 0.01)
-
         # Input weights
         self.encoder = torch.nn.Linear(
             self.Np, self.Ng, bias=False, dtype=self.dtype, device=self.device
