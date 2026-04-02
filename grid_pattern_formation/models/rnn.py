@@ -31,7 +31,7 @@ class RNN(torch.nn.Module):
         )
         self.softmax = torch.nn.Softmax(dim=-1)
         
-        if options.activation == "relu":
+        if options.activation == "relu" and options.kaiming:
             self.initialize_kaiming_weights()
             
     def initialize_kaiming_weights(self):
