@@ -32,20 +32,6 @@ trajectory_generator = TrajectoryGenerator(
 
 
 if options.topoloss_tau is not None:
-    # topo_loss = TopoLoss(
-    #     losses=[
-    #         LaplacianPyramid.from_layer(
-    #             model=model,
-    #             layer=model.RNN,
-    #             factor_h=9,
-    #             factor_w=9,
-    #             scale=options.topoloss_tau,
-    #             custom_weight_attribute_name="weight_hh_l0"
-    #         )
-    #     ],
-    #     strict_layer_type=False
-    # )
-
     if options.topoloss_type == "laplacian_pyramid":
         loss_config = LaplacianPyramid.from_layer(
             model=model,
@@ -53,17 +39,8 @@ if options.topoloss_tau is not None:
             factor_h=options.topoloss_factor_h,
             factor_w=options.topoloss_factor_w,
             scale=options.topoloss_tau,
-            # custom_weight_attribute_name="weight_hh_l0"
         )
         loss_config.custom_weight_attribute_name = "weight_hh_l0"
-    # elif options.topoloss_type == "power_spectrum":
-        # loss_config = PowerSpectrum.from_layer(
-        #     model=model,
-        #     layer=model.RNN,
-        #     freq_cutoff=5.0,
-        #     scale=options.topoloss_tau,
-        #     custom_weight_attribute_name="weight_hh_l0"
-        # )
     else:
         raise ValueError(f"Unsupported topo loss type: {options.topoloss_type}")
 
