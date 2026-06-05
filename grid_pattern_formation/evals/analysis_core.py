@@ -8,68 +8,20 @@ from tqdm import tqdm
 
 from ..utils.visualize import plot_ratemaps
 
-from .core import EvalContext, get_cached_ratemaps
+from .core import EvalContext, get_cached_ratemaps, compute_ratemaps
 from .grid_scores import GridScorer
 
-def _savefig(path: str):
-    plt.tight_layout()
-    plt.savefig(path, dpi=200, bbox_inches="tight")
-    plt.close()
 
-def run_trajectory_decoding(eval_context: EvalContext) -> str:
-    inputs, pos, _pc_outputs = eval_context.trajectory_generator.get_test_batch()
-    pos = pos.detach().cpu().numpy()
-    pred_pos = eval_context.place_cells.get_nearest_cell_pos(eval_context.model.predict(inputs)).detach().cpu().numpy()
-    us = eval_context.place_cells.us.detach().cpu().numpy()
+########################################################################################
+#
+#   Functions to compute grid scores 
+#
+########################################################################################
 
-    fig = plt.figure(figsize=(5, 5))
-    ax = fig.add_subplot(111)
-    for i in range(5):
-        ax.plot(pos[:, i, 0], pos[:, i, 1], c="black", linewidth=2)
-        ax.plot(pred_pos[:, i, 0], pred_pos[:, i, 1], ".-", c="C1")
-    ax.scatter(us[:, 0], us[:, 1], s=20, alpha=0.5, c="lightgrey")
-    for axis in ["top", "bottom", "left", "right"]:
-        ax.spines[axis].set_linewidth(2)
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.set_xlim([-eval_context.options.box_width / 2, eval_context.options.box_width / 2])
-    ax.set_ylim([-eval_context.options.box_height / 2, eval_context.options.box_height / 2])
-
-    out_path = os.path.join(eval_context.save_dir, "trajectory_decoding.png")
-    _savefig(out_path)
-    return out_path
-
-def run_place_cell_outputs(eval_context: EvalContext, n_examples: int = 8) -> str:
-    inputs, _pos, pc_outputs = eval_context.trajectory_generator.get_test_batch()
-    preds = eval_context.model.predict(inputs)
-
-    preds = preds.reshape(-1, eval_context.options.Np).detach().cpu()
-    pc_outputs = eval_context.model.softmax(pc_outputs).reshape(-1, eval_context.options.Np).detach().cpu()
-
-    pc_pred = eval_context.place_cells.grid_pc(preds[:100])
-    pc_true = eval_context.place_cells.grid_pc(pc_outputs[:100])
-
-    plt.figure(figsize=(16, 4))
-    for i in range(n_examples):
-        plt.subplot(2, n_examples, i + n_examples + 1)
-        plt.imshow(pc_pred[2 * i], cmap="jet")
-        if i == 0:
-            plt.ylabel("Predicted")
-        plt.axis("off")
-
-    for i in range(n_examples):
-        plt.subplot(2, n_examples, i + 1)
-        plt.imshow(pc_true[2 * i], cmap="jet", interpolation="gaussian")
-        if i == 0:
-            plt.ylabel("True")
-        plt.axis("off")
-
-    plt.suptitle("Place Cell Outputs", fontsize=16)
-    out_path = os.path.join(eval_context.save_dir, "place_cell_outputs.png")
-    _savefig(out_path)
-    return out_path
 
 def compute_grid_scores(eval_context: EvalContext, lo_res: int = 20, n_avg: int = 100) -> Dict[str, np.ndarray]:
+    # This function computes grid scores for all cells and caches the results. It uses a lower 
+    # resolution for faster computation.
     cache_key = ("grid_scores", lo_res, n_avg)
     if cache_key in eval_context.cache:
         return eval_context.cache[cache_key]
@@ -105,8 +57,71 @@ def compute_grid_scores(eval_context: EvalContext, lo_res: int = 20, n_avg: int 
     eval_context.cache[cache_key] = out
     return out
 
+
+########################################################################################
+#
+#   Plotting analysis
+#
+########################################################################################
+
+def run_trajectory_decoding(eval_context: EvalContext) -> str:
+    inputs, pos, _pc_outputs = eval_context.trajectory_generator.get_test_batch()
+    pos = pos.detach().cpu().numpy()
+    pred_pos = eval_context.place_cells.get_nearest_cell_pos(eval_context.model.predict(inputs)).detach().cpu().numpy()
+    us = eval_context.place_cells.us.detach().cpu().numpy()
+
+    fig = plt.figure(figsize=(5, 5))
+    ax = fig.add_subplot(111)
+    for i in range(5):
+        ax.plot(pos[:, i, 0], pos[:, i, 1], c="black", linewidth=2)
+        ax.plot(pred_pos[:, i, 0], pred_pos[:, i, 1], ".-", c="C1")
+    ax.scatter(us[:, 0], us[:, 1], s=20, alpha=0.5, c="lightgrey")
+    for axis in ["top", "bottom", "left", "right"]:
+        ax.spines[axis].set_linewidth(2)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_xlim([-eval_context.options.box_width / 2, eval_context.options.box_width / 2])
+    ax.set_ylim([-eval_context.options.box_height / 2, eval_context.options.box_height / 2])
+
+    out_path = os.path.join(eval_context.save_dir, "trajectory_decoding.png")
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=200, bbox_inches="tight")
+    plt.close()
+    return out_path
+
+def run_place_cell_outputs(eval_context: EvalContext, n_examples: int = 8) -> str:
+    inputs, _pos, pc_outputs = eval_context.trajectory_generator.get_test_batch()
+    preds = eval_context.model.predict(inputs)
+
+    preds = preds.reshape(-1, eval_context.options.Np).detach().cpu()
+    pc_outputs = eval_context.model.softmax(pc_outputs).reshape(-1, eval_context.options.Np).detach().cpu()
+
+    pc_pred = eval_context.place_cells.grid_pc(preds[:100])
+    pc_true = eval_context.place_cells.grid_pc(pc_outputs[:100])
+
+    plt.figure(figsize=(16, 4))
+    for i in range(n_examples):
+        plt.subplot(2, n_examples, i + n_examples + 1)
+        plt.imshow(pc_pred[2 * i], cmap="jet")
+        if i == 0:
+            plt.ylabel("Predicted")
+        plt.axis("off")
+
+    for i in range(n_examples):
+        plt.subplot(2, n_examples, i + 1)
+        plt.imshow(pc_true[2 * i], cmap="jet", interpolation="gaussian")
+        if i == 0:
+            plt.ylabel("True")
+        plt.axis("off")
+
+    plt.suptitle("Place Cell Outputs", fontsize=16)
+    out_path = os.path.join(eval_context.save_dir, "place_cell_outputs.png")
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=200, bbox_inches="tight")
+    plt.close()
+    return out_path
+
 def run_grid_score_panels(eval_context: EvalContext, res: int = 50, n_avg: int = 100, n_plot: int = 25) -> Dict[str, str]:
-    from .core import compute_ratemaps
     activations, _rate_map, _g, _pos = compute_ratemaps(
             model=eval_context.model,
             trajectory_generator=eval_context.trajectory_generator,
@@ -132,7 +147,9 @@ def run_grid_score_panels(eval_context: EvalContext, res: int = 50, n_avg: int =
     )
     plt.axis("off")
     out_high = os.path.join(eval_context.save_dir, "grid_scores_high.png")
-    _savefig(out_high)
+    plt.tight_layout()
+    plt.savefig(out_high, dpi=200, bbox_inches="tight")
+    plt.close()
     outputs["high"] = out_high
 
     plt.figure(figsize=(8, 8))
@@ -144,7 +161,9 @@ def run_grid_score_panels(eval_context: EvalContext, res: int = 50, n_avg: int =
     )
     plt.axis("off")
     out_med = os.path.join(eval_context.save_dir, "grid_scores_medium.png")
-    _savefig(out_med)
+    plt.tight_layout()
+    plt.savefig(out_med, dpi=200, bbox_inches="tight")
+    plt.close()
     outputs["medium"] = out_med
 
     plt.figure(figsize=(8, 8))
@@ -156,7 +175,9 @@ def run_grid_score_panels(eval_context: EvalContext, res: int = 50, n_avg: int =
     )
     plt.axis("off")
     out_low = os.path.join(eval_context.save_dir, "grid_scores_low.png")
-    _savefig(out_low)
+    plt.tight_layout()
+    plt.savefig(out_low, dpi=200, bbox_inches="tight")
+    plt.close()
     outputs["low"] = out_low
 
     return outputs
@@ -170,7 +191,9 @@ def run_grid_score_histogram(eval_context: EvalContext) -> str:
     plt.xlabel("Grid score")
     plt.ylabel("Count")
     out_path = os.path.join(eval_context.save_dir, "grid_score_histogram.png")
-    _savefig(out_path)
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=200, bbox_inches="tight")
+    plt.close()
     return out_path
 
 def run_manifold_distance(eval_context: EvalContext, res: int = 50, n_avg: int = 100) -> Dict[str, str]:
