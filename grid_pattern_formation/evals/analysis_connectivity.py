@@ -20,9 +20,6 @@ from ..utils.two_d_sort import get_2d_sort
 def compute_phase_order(
     ctx: EvalContext, rate_map: np.ndarray, res: int
 ) -> Tuple[np.ndarray, np.ndarray]:
-    # This function computes the phase order of the grid cells based on their rate maps.
-    # The phase order is determined by the phases of the Fourier modes of the rate maps at specific wavevectors.
-
     cache_key = ("phase_order", res)
     if cache_key in ctx.cache:
         return ctx.cache[cache_key]
@@ -65,7 +62,6 @@ def compute_phase_order(
 def compute_phase_original_order(
     ctx: EvalContext, rate_map: np.ndarray, res: int
 ) -> Tuple[np.ndarray, np.ndarray]:
-    # This function computes the phases of the Fourier modes of the rate maps at specific wavevectors without sorting the cells.
     cache_key = ("phase_no_resort", res)
     if cache_key in ctx.cache:
         return ctx.cache[cache_key]
@@ -87,7 +83,6 @@ def compute_phase_original_order(
 
 
 def compute_jmean(Jsort: np.ndarray, n: int):
-    # This function computes the mean connectivity matrix Jmean by averaging the connectivity matrix Jsort over all possible circular shifts.
     J_square = np.reshape(Jsort, (n, n, n, n))
     Jmean = np.zeros([n, n])
     for i in range(n):
@@ -185,7 +180,6 @@ def plot_single_neuron_connectivity(J_matrix: np.ndarray, n: int, out_path: str)
 
 
 def run_eigenvalues(ctx: EvalContext) -> str:
-    # This function computes the eigenvalues of the connectivity matrix J and plots them in the complex plane, highlighting the first 9 eigenvalues.
     J = ctx.model.RNN.weight_hh_l0.detach().cpu().numpy().T
     eigs, _eigvs = np.linalg.eig(J)
 
@@ -208,7 +202,6 @@ def run_eigenvalues(ctx: EvalContext) -> str:
 
 
 def run_unsorted_connectivity_eigvs(ctx: EvalContext) -> str:
-    # This function computes the eigenvectors of the connectivity matrix J without sorting the cells and plots them in a panel.
     n = np.sqrt(ctx.options.Ng).astype(int)
 
     J = ctx.model.RNN.weight_hh_l0.detach().cpu().numpy().T
@@ -227,7 +220,6 @@ def run_unsorted_connectivity_eigvs(ctx: EvalContext) -> str:
 def run_sorted_connectivity_eigvs(
     ctx: EvalContext, res: int = 50, n_avg: int = 100, use_gpu: bool = True
 ) -> str:
-    # This function computes the eigenvectors of the connectivity matrix J after sorting the cells based on their phase order and plots them in a panel.
     n = np.sqrt(ctx.options.Ng).astype(int)
     _activations, rate_map, _g, _pos = get_cached_ratemaps(
         ctx, res=res, n_avg=n_avg, ng=ctx.options.Ng
@@ -255,7 +247,6 @@ def run_sorted_connectivity_eigvs(
 
 
 def run_jmean_unsorted(ctx: EvalContext) -> str:
-    # This function computes the mean connectivity matrix Jmean without sorting the cells and plots it as a heatmap.
     n = np.sqrt(ctx.options.Ng).astype(int)
     J = ctx.model.RNN.weight_hh_l0.detach().cpu().numpy().T
     _Jmean, imroll = compute_jmean(J, n)
@@ -275,7 +266,6 @@ def run_jmean_unsorted(ctx: EvalContext) -> str:
 
 
 def run_jmean_sorted(ctx: EvalContext, res: int = 50, n_avg: int = 100) -> str:
-    # This function computes the mean connectivity matrix Jmean after sorting the cells based on their phase order and plots it as a heatmap.
     n = np.sqrt(ctx.options.Ng).astype(int)
     _activations, rate_map, _g, _pos = get_cached_ratemaps(
         ctx, res=res, n_avg=n_avg, ng=ctx.options.Ng
@@ -301,7 +291,6 @@ def run_jmean_sorted(ctx: EvalContext, res: int = 50, n_avg: int = 100) -> str:
 
 
 def run_single_neuron_connectivity_unsorted(ctx: EvalContext) -> str:
-    # This function plots the connectivity pattern of single example neurons from the unsorted connectivity matrix J.
     n = np.sqrt(ctx.options.Ng).astype(int)
     J = ctx.model.RNN.weight_hh_l0.detach().cpu().numpy().T
     out_path = os.path.join(ctx.save_dir, "single_neuron_connectivity_unsorted.png")
@@ -311,7 +300,6 @@ def run_single_neuron_connectivity_unsorted(ctx: EvalContext) -> str:
 def run_single_neuron_connectivity_sorted(
     ctx: EvalContext, res: int = 50, n_avg: int = 100
 ) -> str:
-    # This function plots the connectivity pattern of single example neurons from the sorted connectivity matrix Jsort.
     n = np.sqrt(ctx.options.Ng).astype(int)
     _activations, rate_map, _g, _pos = get_cached_ratemaps(
         ctx, res=res, n_avg=n_avg, ng=ctx.options.Ng
