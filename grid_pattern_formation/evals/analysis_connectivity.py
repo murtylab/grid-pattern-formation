@@ -1,46 +1,46 @@
 import os
-import sys
-from typing import Dict, Tuple
+from typing import Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy
+import torch
 
 from .core import EvalContext, get_cached_ratemaps
-
 from ..utils.two_d_sort import get_2d_sort
 
-def _savefig(path: str):
-    plt.tight_layout()
-    plt.savefig(path, dpi=200, bbox_inches="tight")
-    plt.close()
 
-def _compute_phase_order(ctx: EvalContext, rate_map: np.ndarray, res: int) -> Tuple[np.ndarray, np.ndarray]:
+########################################################################################
+#
+#   Functions to compute phase order, mean connectivity, and eigenvalues/eigenvectors
+#
+########################################################################################
+
+
+def compute_phase_order(
+    ctx: EvalContext, rate_map: np.ndarray, res: int
+) -> Tuple[np.ndarray, np.ndarray]:
+    # This function computes the phase order of the grid cells based on their rate maps.
+    # The phase order is determined by the phases of the Fourier modes of the rate maps at specific wavevectors.
+
     cache_key = ("phase_order", res)
     if cache_key in ctx.cache:
         return ctx.cache[cache_key]
 
     ng = ctx.options.Ng
-    n = np.sqrt(ng).astype(int)
+    width = np.sqrt(ng).astype(int)
 
-    #rm_fft_real = np.zeros([ng, res, res])
-    #rm_fft_imag = np.zeros([ng, res, res])
-    #for i in range(ng):
-    #    rm_fft_real[i] = np.real(np.fft.fft2(rate_map[i].reshape([res, res])))
-    #    rm_fft_imag[i] = np.imag(np.fft.fft2(rate_map[i].reshape([res, res])))
-    #rm_fft = rm_fft_real + 1j * rm_fft_imag
-    
     rate_map_reshaped = rate_map.reshape(ng, res, res)
     rm_fft = np.fft.fft2(rate_map_reshaped)
 
-    k1 = [3, 0]
+    k1 = [3, 0]  # hardcoded wavevectors from Sorscher et al.'s original work
     k2 = [2, 3]
     k3 = [-1, 3]
+
     ks = np.array([k1, k2, k3, k1, k1, k1]).astype(int)
     modes = np.stack([rm_fft[:, k[0], k[1]] for k in ks])
     phases = [np.angle(mode) for mode in modes]
 
-    width = n
     x_grid, y_grid = np.meshgrid(np.arange(width), np.arange(width))
     x_grid = x_grid * 2 * np.pi / width
     y_grid = y_grid * 2 * np.pi / width
@@ -61,18 +61,22 @@ def _compute_phase_order(ctx: EvalContext, rate_map: np.ndarray, res: int) -> Tu
     ctx.cache[cache_key] = out
     return out
 
-def _compute_phase_original_order(ctx: EvalContext, rate_map: np.ndarray, res: int) -> Tuple[np.ndarray, np.ndarray]:
+
+def compute_phase_original_order(
+    ctx: EvalContext, rate_map: np.ndarray, res: int
+) -> Tuple[np.ndarray, np.ndarray]:
+    # This function computes the phases of the Fourier modes of the rate maps at specific wavevectors without sorting the cells.
     cache_key = ("phase_no_resort", res)
     if cache_key in ctx.cache:
         return ctx.cache[cache_key]
 
     ng = ctx.options.Ng
-    
+
     rate_map_reshaped = rate_map.reshape(ng, res, res)
     rm_fft = np.fft.fft2(rate_map_reshaped)
 
-    ks = np.array([[3, 0], [2, 3], [-1, 3]]) 
-    
+    ks = np.array([[3, 0], [2, 3], [-1, 3]])
+
     phases = np.array([np.angle(rm_fft[:, k[0], k[1]]) for k in ks])
 
     total_order = np.arange(ng)
@@ -81,7 +85,9 @@ def _compute_phase_original_order(ctx: EvalContext, rate_map: np.ndarray, res: i
     ctx.cache[cache_key] = out
     return out
 
-def _compute_jmean(Jsort: np.ndarray, n: int):
+
+def compute_jmean(Jsort: np.ndarray, n: int):
+    # This function computes the mean connectivity matrix Jmean by averaging the connectivity matrix Jsort over all possible circular shifts.
     J_square = np.reshape(Jsort, (n, n, n, n))
     Jmean = np.zeros([n, n])
     for i in range(n):
@@ -97,26 +103,17 @@ def _compute_jmean(Jsort: np.ndarray, n: int):
     imroll = np.roll(np.roll(im, -n // 4, axis=0), 0, axis=1)
     return Jmean, imroll
 
-def run_eigenvalues(ctx: EvalContext) -> str:
-    J = ctx.model.RNN.weight_hh_l0.detach().cpu().numpy().T
-    eigs, _eigvs = np.linalg.eig(J)
 
-    fig, ax = plt.subplots(figsize=(6, 5))
-    ax.scatter(np.real(eigs), np.imag(eigs), c="black", s=20)
-    ax.scatter(np.real(eigs[:9]), np.imag(eigs[:9]), c="C1", s=20)
-    circle = plt.Circle((0, 0), 1, color="tan", fill=False, linestyle="dashed", linewidth=2)
-    ax.add_artist(circle)
-    ax.set_xlim([-1.1, 2.5])
-    ax.set_ylim([-1.1, 1.1])
-    ax.set_aspect("equal", adjustable="box")
-    ax.locator_params(nbins=4)
+########################################################################################
+#
+#   Plotting Utils
+#
+########################################################################################
 
-    out_path = os.path.join(ctx.save_dir, "final_eigs.png")
-    plt.savefig(out_path, dpi=200, bbox_inches="tight")
-    plt.close(fig)
-    return out_path
 
-def _plot_connectivity_eigvs_panel(eigvs_rot: np.ndarray, n: int, title: str, out_path: str) -> str:
+def plot_connectivity_eigvs_panel(
+    eigvs_rot: np.ndarray, n: int, title: str, out_path: str
+) -> str:
     A = np.asarray([[2, 1], [0, np.sqrt(3)]]) / 2
     Ainv = np.linalg.inv(A)
 
@@ -134,86 +131,13 @@ def _plot_connectivity_eigvs_panel(eigvs_rot: np.ndarray, n: int, title: str, ou
         plt.imshow(im, cmap="coolwarm")
         plt.axis("off")
 
-    _savefig(out_path)
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=200, bbox_inches="tight")
+    plt.close()
     return out_path
 
-def run_unsorted_connectivity_eigvs(ctx: EvalContext) -> str:
-    n = np.sqrt(ctx.options.Ng).astype(int)
 
-    J = ctx.model.RNN.weight_hh_l0.detach().cpu().numpy().T
-    _eigenvalues, eigenvectors = np.linalg.eig(J)
-    eigvs_rot = eigenvectors.T
-
-    out_path = os.path.join(ctx.save_dir, "eigvs2_unsorted.png")
-    return _plot_connectivity_eigvs_panel(
-        eigvs_rot=eigvs_rot,
-        n=n,
-        title="Unsorted Connectivity",
-        out_path=out_path,
-    )
-
-def run_sorted_connectivity_eigvs(ctx: EvalContext, res: int = 50, n_avg: int = 100, use_gpu: bool = True) -> str:
-    n = np.sqrt(ctx.options.Ng).astype(int)
-    _activations, rate_map, _g, _pos = get_cached_ratemaps(ctx, res=res, n_avg=n_avg, ng=ctx.options.Ng)
-    total_order, _phases = _compute_phase_order(ctx, rate_map, res)
-
-    J = ctx.model.RNN.weight_hh_l0.detach().cpu().numpy().T
-    Jsort = J[total_order][:, total_order]
-    if not use_gpu:
-        _eigenvalues, eigenvectors = np.linalg.eig(Jsort)
-    else:
-        import torch
-        device = ctx.options.device
-        Jsort_gpu = torch.from_numpy(Jsort).float().to(device)
-        eigvals_gpu, eigvecs_gpu = torch.linalg.eig(Jsort_gpu)
-        eigenvectors = eigvecs_gpu.cpu().numpy()
-    eigvs_rot = eigenvectors.T
-
-    out_path = os.path.join(ctx.save_dir, "eigvs2_sorted.png")
-    return _plot_connectivity_eigvs_panel(
-        eigvs_rot=eigvs_rot,
-        n=n,
-        title="Sorted Connectivity",
-        out_path=out_path,
-    )
-
-def run_jmean_unsorted(ctx: EvalContext) -> str:
-    n = np.sqrt(ctx.options.Ng).astype(int)
-    J = ctx.model.RNN.weight_hh_l0.detach().cpu().numpy().T
-    _Jmean, imroll = _compute_jmean(J, n)
-
-    limit = abs(imroll.min())
-    plt.figure(figsize=(5, 5))
-    img = plt.imshow(imroll, cmap="coolwarm", vmin=-limit, vmax=limit)
-    plt.colorbar(img, fraction=0.046, pad=0.04, extend="max")
-    plt.title("J (unsorted)")
-    plt.axis("off")
-
-    out_path = os.path.join(ctx.save_dir, "jmean_unsorted.png")
-    _savefig(out_path)
-    return out_path
-
-def run_jmean_sorted(ctx: EvalContext, res: int = 50, n_avg: int = 100) -> str:
-    n = np.sqrt(ctx.options.Ng).astype(int)
-    _activations, rate_map, _g, _pos = get_cached_ratemaps(ctx, res=res, n_avg=n_avg, ng=ctx.options.Ng)
-    total_order, _phases = _compute_phase_order(ctx, rate_map, res)
-
-    J = ctx.model.RNN.weight_hh_l0.detach().cpu().numpy().T
-    Jsort = J[total_order][:, total_order]
-    _Jmean, imroll = _compute_jmean(Jsort, n)
-
-    limit = abs(imroll.min())
-    plt.figure(figsize=(5, 5))
-    img = plt.imshow(imroll, cmap="coolwarm", vmin=-limit, vmax=limit)
-    plt.colorbar(img, fraction=0.046, pad=0.04, extend="max")
-    plt.title("J (sorted)")
-    plt.axis("off")
-
-    out_path = os.path.join(ctx.save_dir, "jmean_sorted.png")
-    _savefig(out_path)
-    return out_path
-
-def _plot_single_neuron_connectivity(J_matrix: np.ndarray, n: int, out_path: str) -> str:
+def plot_single_neuron_connectivity(J_matrix: np.ndarray, n: int, out_path: str) -> str:
     J_square = np.reshape(J_matrix, (n, n, n, n))
 
     A = np.asarray([[2, 1], [0, np.sqrt(3)]]) / 2
@@ -227,12 +151,24 @@ def _plot_single_neuron_connectivity(J_matrix: np.ndarray, n: int, out_path: str
         im_single = scipy.ndimage.affine_transform(single_neuron, Ainv, mode="wrap")
         imroll_single = np.roll(np.roll(im_single, -n // 4, axis=0), 0, axis=1)
 
-        img = axes[idx].imshow(imroll_single, cmap="coolwarm", vmin=imroll_single.min(), vmax=imroll_single.max())
+        img = axes[idx].imshow(
+            imroll_single,
+            cmap="coolwarm",
+            vmin=imroll_single.min(),
+            vmax=imroll_single.max(),
+        )
         fig.colorbar(img, ax=axes[idx], fraction=0.046, pad=0.04)
 
         marker_y = (i - n // 4) % single_neuron.shape[0]
         marker_x = j
-        axes[idx].plot(marker_x, marker_y, color="black", marker="x", markersize=10, markeredgewidth=2)
+        axes[idx].plot(
+            marker_x,
+            marker_y,
+            color="black",
+            marker="x",
+            markersize=10,
+            markeredgewidth=2,
+        )
         axes[idx].set_title(f"Neuron ({i},{j})")
         axes[idx].axis("off")
 
@@ -240,19 +176,150 @@ def _plot_single_neuron_connectivity(J_matrix: np.ndarray, n: int, out_path: str
     plt.close(fig)
     return out_path
 
+
+########################################################################################
+#
+#   Functions to run the analyses and generate plots for eigenvalues, eigenvectors, and mean connectivity
+#
+########################################################################################
+
+
+def run_eigenvalues(ctx: EvalContext) -> str:
+    # This function computes the eigenvalues of the connectivity matrix J and plots them in the complex plane, highlighting the first 9 eigenvalues.
+    J = ctx.model.RNN.weight_hh_l0.detach().cpu().numpy().T
+    eigs, _eigvs = np.linalg.eig(J)
+
+    fig, ax = plt.subplots(figsize=(6, 5))
+    ax.scatter(np.real(eigs), np.imag(eigs), c="black", s=20)
+    ax.scatter(np.real(eigs[:9]), np.imag(eigs[:9]), c="C1", s=20)
+    circle = plt.Circle(
+        (0, 0), 1, color="tan", fill=False, linestyle="dashed", linewidth=2
+    )
+    ax.add_artist(circle)
+    ax.set_xlim([-1.1, 2.5])
+    ax.set_ylim([-1.1, 1.1])
+    ax.set_aspect("equal", adjustable="box")
+    ax.locator_params(nbins=4)
+
+    out_path = os.path.join(ctx.save_dir, "final_eigs.png")
+    plt.savefig(out_path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    return out_path
+
+
+def run_unsorted_connectivity_eigvs(ctx: EvalContext) -> str:
+    # This function computes the eigenvectors of the connectivity matrix J without sorting the cells and plots them in a panel.
+    n = np.sqrt(ctx.options.Ng).astype(int)
+
+    J = ctx.model.RNN.weight_hh_l0.detach().cpu().numpy().T
+    _eigenvalues, eigenvectors = np.linalg.eig(J)
+    eigvs_rot = eigenvectors.T
+
+    out_path = os.path.join(ctx.save_dir, "eigvs2_unsorted.png")
+    return plot_connectivity_eigvs_panel(
+        eigvs_rot=eigvs_rot,
+        n=n,
+        title="Unsorted Connectivity",
+        out_path=out_path,
+    )
+
+
+def run_sorted_connectivity_eigvs(
+    ctx: EvalContext, res: int = 50, n_avg: int = 100, use_gpu: bool = True
+) -> str:
+    # This function computes the eigenvectors of the connectivity matrix J after sorting the cells based on their phase order and plots them in a panel.
+    n = np.sqrt(ctx.options.Ng).astype(int)
+    _activations, rate_map, _g, _pos = get_cached_ratemaps(
+        ctx, res=res, n_avg=n_avg, ng=ctx.options.Ng
+    )
+    total_order, _phases = compute_phase_order(ctx, rate_map, res)
+
+    J = ctx.model.RNN.weight_hh_l0.detach().cpu().numpy().T
+    Jsort = J[total_order][:, total_order]
+    if not use_gpu:
+        _eigenvalues, eigenvectors = np.linalg.eig(Jsort)
+    else:
+        device = ctx.options.device
+        Jsort_gpu = torch.from_numpy(Jsort).float().to(device)
+        eigvals_gpu, eigvecs_gpu = torch.linalg.eig(Jsort_gpu)
+        eigenvectors = eigvecs_gpu.cpu().numpy()
+    eigvs_rot = eigenvectors.T
+
+    out_path = os.path.join(ctx.save_dir, "eigvs2_sorted.png")
+    return plot_connectivity_eigvs_panel(
+        eigvs_rot=eigvs_rot,
+        n=n,
+        title="Sorted Connectivity",
+        out_path=out_path,
+    )
+
+
+def run_jmean_unsorted(ctx: EvalContext) -> str:
+    # This function computes the mean connectivity matrix Jmean without sorting the cells and plots it as a heatmap.
+    n = np.sqrt(ctx.options.Ng).astype(int)
+    J = ctx.model.RNN.weight_hh_l0.detach().cpu().numpy().T
+    _Jmean, imroll = compute_jmean(J, n)
+
+    limit = abs(imroll.min())
+    plt.figure(figsize=(5, 5))
+    img = plt.imshow(imroll, cmap="coolwarm", vmin=-limit, vmax=limit)
+    plt.colorbar(img, fraction=0.046, pad=0.04, extend="max")
+    plt.title("J (unsorted)")
+    plt.axis("off")
+
+    out_path = os.path.join(ctx.save_dir, "jmean_unsorted.png")
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=200, bbox_inches="tight")
+    plt.close()
+    return out_path
+
+
+def run_jmean_sorted(ctx: EvalContext, res: int = 50, n_avg: int = 100) -> str:
+    # This function computes the mean connectivity matrix Jmean after sorting the cells based on their phase order and plots it as a heatmap.
+    n = np.sqrt(ctx.options.Ng).astype(int)
+    _activations, rate_map, _g, _pos = get_cached_ratemaps(
+        ctx, res=res, n_avg=n_avg, ng=ctx.options.Ng
+    )
+    total_order, _phases = compute_phase_order(ctx, rate_map, res)
+
+    J = ctx.model.RNN.weight_hh_l0.detach().cpu().numpy().T
+    Jsort = J[total_order][:, total_order]
+    _Jmean, imroll = compute_jmean(Jsort, n)
+
+    limit = abs(imroll.min())
+    plt.figure(figsize=(5, 5))
+    img = plt.imshow(imroll, cmap="coolwarm", vmin=-limit, vmax=limit)
+    plt.colorbar(img, fraction=0.046, pad=0.04, extend="max")
+    plt.title("J (sorted)")
+    plt.axis("off")
+
+    out_path = os.path.join(ctx.save_dir, "jmean_sorted.png")
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=200, bbox_inches="tight")
+    plt.close()
+    return out_path
+
+
 def run_single_neuron_connectivity_unsorted(ctx: EvalContext) -> str:
+    # This function plots the connectivity pattern of single example neurons from the unsorted connectivity matrix J.
     n = np.sqrt(ctx.options.Ng).astype(int)
     J = ctx.model.RNN.weight_hh_l0.detach().cpu().numpy().T
     out_path = os.path.join(ctx.save_dir, "single_neuron_connectivity_unsorted.png")
-    return _plot_single_neuron_connectivity(J, n, out_path)
+    return plot_single_neuron_connectivity(J, n, out_path)
 
-def run_single_neuron_connectivity_sorted(ctx: EvalContext, res: int = 50, n_avg: int = 100) -> str:
+
+def run_single_neuron_connectivity_sorted(
+    ctx: EvalContext, res: int = 50, n_avg: int = 100
+) -> str:
+    # This function plots the connectivity pattern of single example neurons from the sorted connectivity matrix Jsort.
     n = np.sqrt(ctx.options.Ng).astype(int)
-    _activations, rate_map, _g, _pos = get_cached_ratemaps(ctx, res=res, n_avg=n_avg, ng=ctx.options.Ng)
-    total_order, _phases = _compute_phase_order(ctx, rate_map, res)
+    _activations, rate_map, _g, _pos = get_cached_ratemaps(
+        ctx, res=res, n_avg=n_avg, ng=ctx.options.Ng
+    )
+    total_order, _phases = compute_phase_order(ctx, rate_map, res)
 
     J = ctx.model.RNN.weight_hh_l0.detach().cpu().numpy().T
     Jsort = J[total_order][:, total_order]
 
     out_path = os.path.join(ctx.save_dir, "single_neuron_connectivity_sorted.png")
-    return _plot_single_neuron_connectivity(Jsort, n, out_path)
+    return plot_single_neuron_connectivity(Jsort, n, out_path)
