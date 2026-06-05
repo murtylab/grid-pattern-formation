@@ -7,20 +7,21 @@ import numpy as np
 from tqdm import tqdm
 
 from ..utils.visualize import plot_ratemaps
-
 from .core import EvalContext, get_cached_ratemaps, compute_ratemaps
 from .grid_scores import GridScorer
 
 
 ########################################################################################
 #
-#   Functions to compute grid scores 
+#   Functions to compute grid scores
 #
 ########################################################################################
 
 
-def compute_grid_scores(eval_context: EvalContext, lo_res: int = 20, n_avg: int = 100) -> Dict[str, np.ndarray]:
-    # This function computes grid scores for all cells and caches the results. It uses a lower 
+def compute_grid_scores(
+    eval_context: EvalContext, lo_res: int = 20, n_avg: int = 100
+) -> Dict[str, np.ndarray]:
+    # This function computes grid scores for all cells and caches the results. It uses a lower
     # resolution for faster computation.
     cache_key = ("grid_scores", lo_res, n_avg)
     if cache_key in eval_context.cache:
@@ -42,7 +43,10 @@ def compute_grid_scores(eval_context: EvalContext, lo_res: int = 20, n_avg: int 
     scorer = GridScorer(lo_res, coord_range, zip(starts, ends.tolist()))
 
     score_60, score_90, max_60_mask, max_90_mask, sac, max_60_ind = zip(
-        *[scorer.get_scores(rm.reshape(lo_res, lo_res)) for rm in tqdm(rate_map_lores, desc="Grid scores")]
+        *[
+            scorer.get_scores(rm.reshape(lo_res, lo_res))
+            for rm in tqdm(rate_map_lores, desc="Grid scores")
+        ]
     )
 
     out = {
@@ -64,10 +68,18 @@ def compute_grid_scores(eval_context: EvalContext, lo_res: int = 20, n_avg: int 
 #
 ########################################################################################
 
+
 def run_trajectory_decoding(eval_context: EvalContext) -> str:
     inputs, pos, _pc_outputs = eval_context.trajectory_generator.get_test_batch()
     pos = pos.detach().cpu().numpy()
-    pred_pos = eval_context.place_cells.get_nearest_cell_pos(eval_context.model.predict(inputs)).detach().cpu().numpy()
+    pred_pos = (
+        eval_context.place_cells.get_nearest_cell_pos(
+            eval_context.model.predict(inputs)
+        )
+        .detach()
+        .cpu()
+        .numpy()
+    )
     us = eval_context.place_cells.us.detach().cpu().numpy()
 
     fig = plt.figure(figsize=(5, 5))
@@ -80,8 +92,12 @@ def run_trajectory_decoding(eval_context: EvalContext) -> str:
         ax.spines[axis].set_linewidth(2)
     ax.set_xticks([])
     ax.set_yticks([])
-    ax.set_xlim([-eval_context.options.box_width / 2, eval_context.options.box_width / 2])
-    ax.set_ylim([-eval_context.options.box_height / 2, eval_context.options.box_height / 2])
+    ax.set_xlim(
+        [-eval_context.options.box_width / 2, eval_context.options.box_width / 2]
+    )
+    ax.set_ylim(
+        [-eval_context.options.box_height / 2, eval_context.options.box_height / 2]
+    )
 
     out_path = os.path.join(eval_context.save_dir, "trajectory_decoding.png")
     plt.tight_layout()
@@ -89,12 +105,18 @@ def run_trajectory_decoding(eval_context: EvalContext) -> str:
     plt.close()
     return out_path
 
+
 def run_place_cell_outputs(eval_context: EvalContext, n_examples: int = 8) -> str:
     inputs, _pos, pc_outputs = eval_context.trajectory_generator.get_test_batch()
     preds = eval_context.model.predict(inputs)
 
     preds = preds.reshape(-1, eval_context.options.Np).detach().cpu()
-    pc_outputs = eval_context.model.softmax(pc_outputs).reshape(-1, eval_context.options.Np).detach().cpu()
+    pc_outputs = (
+        eval_context.model.softmax(pc_outputs)
+        .reshape(-1, eval_context.options.Np)
+        .detach()
+        .cpu()
+    )
 
     pc_pred = eval_context.place_cells.grid_pc(preds[:100])
     pc_true = eval_context.place_cells.grid_pc(pc_outputs[:100])
@@ -121,15 +143,18 @@ def run_place_cell_outputs(eval_context: EvalContext, n_examples: int = 8) -> st
     plt.close()
     return out_path
 
-def run_grid_score_panels(eval_context: EvalContext, res: int = 50, n_avg: int = 100, n_plot: int = 25) -> Dict[str, str]:
+
+def run_grid_score_panels(
+    eval_context: EvalContext, res: int = 50, n_avg: int = 100, n_plot: int = 25
+) -> Dict[str, str]:
     activations, _rate_map, _g, _pos = compute_ratemaps(
-            model=eval_context.model,
-            trajectory_generator=eval_context.trajectory_generator,
-            options=eval_context.options,
-            res=res,
-            n_avg=n_avg,
-            Ng=eval_context.options.Ng,
-        )
+        model=eval_context.model,
+        trajectory_generator=eval_context.trajectory_generator,
+        options=eval_context.options,
+        res=res,
+        n_avg=n_avg,
+        Ng=eval_context.options.Ng,
+    )
     scores = compute_grid_scores(eval_context)
     score_60 = scores["score_60"]
 
@@ -182,6 +207,7 @@ def run_grid_score_panels(eval_context: EvalContext, res: int = 50, n_avg: int =
 
     return outputs
 
+
 def run_grid_score_histogram(eval_context: EvalContext) -> str:
     scores = compute_grid_scores(eval_context)
     score_60 = scores["score_60"]
@@ -196,8 +222,13 @@ def run_grid_score_histogram(eval_context: EvalContext) -> str:
     plt.close()
     return out_path
 
-def run_manifold_distance(eval_context: EvalContext, res: int = 50, n_avg: int = 100) -> Dict[str, str]:
-    _activations, rate_map, _g, _pos = get_cached_ratemaps(eval_context, res=res, n_avg=n_avg, ng=eval_context.options.Ng)
+
+def run_manifold_distance(
+    eval_context: EvalContext, res: int = 50, n_avg: int = 100
+) -> Dict[str, str]:
+    _activations, rate_map, _g, _pos = get_cached_ratemaps(
+        eval_context, res=res, n_avg=n_avg, ng=eval_context.options.Ng
+    )
     scores = compute_grid_scores(eval_context)
     score_60 = scores["score_60"]
 
@@ -209,7 +240,9 @@ def run_manifold_distance(eval_context: EvalContext, res: int = 50, n_avg: int =
     for i in range(3):
         for j in range(3):
             plt.subplot(3, 3, 3 * i + j + 1)
-            origin_idx = np.ravel_multi_index((origins[0, i, j], origins[1, i, j]), (res, res))
+            origin_idx = np.ravel_multi_index(
+                (origins[0, i, j], origins[1, i, j]), (res, res)
+            )
             r0 = rate_map[:, origin_idx, None]
             dists = np.linalg.norm(r0 - rate_map, axis=0)
             im = plt.imshow(
@@ -235,7 +268,9 @@ def run_manifold_distance(eval_context: EvalContext, res: int = 50, n_avg: int =
     for i in range(3):
         for j in range(3):
             plt.subplot(3, 3, 3 * i + j + 1)
-            origin_idx = np.ravel_multi_index((origins[0, i, j], origins[1, i, j]), (res, res))
+            origin_idx = np.ravel_multi_index(
+                (origins[0, i, j], origins[1, i, j]), (res, res)
+            )
             r0 = rate_map[grid_sort[:n_grid_cells], origin_idx, None]
             dists = np.linalg.norm(r0 - rate_map[grid_sort[:n_grid_cells]], axis=0)
             im = plt.imshow(
